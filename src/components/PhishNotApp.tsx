@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Shield, Upload, AlertTriangle, CheckCircle, FileText } from "lucide-react";
+import { Shield, Upload, AlertTriangle, CheckCircle, FileText, LogOut } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -21,6 +22,7 @@ const PhishNotApp = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const { toast } = useToast();
+  const { user, signOut } = useAuth();
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -72,25 +74,42 @@ const PhishNotApp = () => {
               </div>
             </div>
             
-            <nav className="hidden md:flex space-x-6">
-              <button 
-                onClick={() => scrollToSection('hero')}
-                className="text-foreground hover:text-primary transition-colors"
-              >
-                Home
-              </button>
-              <button 
-                onClick={() => scrollToSection('about')}
-                className="text-foreground hover:text-primary transition-colors"
-              >
-                About
-              </button>
-              <button 
-                onClick={() => scrollToSection('contact')}
-                className="text-foreground hover:text-primary transition-colors"
-              >
-                Contact
-              </button>
+            <nav className="flex items-center space-x-6">
+              <div className="hidden md:flex space-x-6">
+                <button 
+                  onClick={() => scrollToSection('hero')}
+                  className="text-foreground hover:text-primary transition-colors"
+                >
+                  Home
+                </button>
+                <button 
+                  onClick={() => scrollToSection('about')}
+                  className="text-foreground hover:text-primary transition-colors"
+                >
+                  About
+                </button>
+                <button 
+                  onClick={() => scrollToSection('contact')}
+                  className="text-foreground hover:text-primary transition-colors"
+                >
+                  Contact
+                </button>
+              </div>
+              
+              <div className="flex items-center space-x-3">
+                <span className="text-sm text-muted-foreground hidden sm:block">
+                  {user?.email}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={signOut}
+                  className="border-border/40"
+                >
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </Button>
+              </div>
             </nav>
           </div>
         </div>
