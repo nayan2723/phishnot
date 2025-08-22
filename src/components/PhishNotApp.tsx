@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Shield, Upload, AlertTriangle, CheckCircle, FileText, LogOut } from "lucide-react";
+import { Shield, Upload, AlertTriangle, CheckCircle, FileText, LogOut, User } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,6 +24,7 @@ const PhishNotApp = () => {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const { toast } = useToast();
   const { user, signOut } = useAuth();
+  const navigate = useNavigate();
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -36,6 +38,11 @@ const PhishNotApp = () => {
   };
 
   const simulateScan = () => {
+    if (!user) {
+      navigate('/auth');
+      return;
+    }
+
     setIsScanning(true);
     setScanResult(null);
 
@@ -97,18 +104,41 @@ const PhishNotApp = () => {
               </div>
               
               <div className="flex items-center space-x-3">
-                <span className="text-sm text-muted-foreground hidden sm:block">
-                  {user?.email}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={signOut}
-                  className="border-border/40"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
-                </Button>
+                {user ? (
+                  <>
+                    <span className="text-sm text-muted-foreground hidden sm:block">
+                      {user.email}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={signOut}
+                      className="border-border/40"
+                    >
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Sign Out
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigate('/auth')}
+                      className="border-border/40"
+                    >
+                      Sign In
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => navigate('/auth')}
+                      className="glow-primary"
+                    >
+                      <User className="w-4 h-4 mr-2" />
+                      Sign Up
+                    </Button>
+                  </>
+                )}
               </div>
             </nav>
           </div>
@@ -229,7 +259,7 @@ const PhishNotApp = () => {
                 ) : (
                   <>
                     <Shield className="w-5 h-5 mr-2" />
-                    Scan Now
+                    {user ? 'Scan Now' : 'Sign In to Scan'}
                   </>
                 )}
               </Button>
