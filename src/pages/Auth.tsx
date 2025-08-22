@@ -1,75 +1,28 @@
-import { useState, useEffect } from "react";
-import { Shield, Mail, Lock, User, ArrowRight } from "lucide-react";
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/clerk-react';
+import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { Shield } from "lucide-react";
 
 const Auth = () => {
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if user is already authenticated
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        navigate("/");
+    // Auto-redirect authenticated users to home
+    const checkAuth = () => {
+      const user = document.querySelector('[data-clerk-user]');
+      if (user) {
+        navigate('/');
       }
     };
+    
+    // Check immediately and set up a periodic check
     checkAuth();
+    const interval = setInterval(checkAuth, 1000);
+    
+    return () => clearInterval(interval);
   }, [navigate]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            emailRedirectTo: `${window.location.origin}/`
-          }
-        });
-        
-        if (error) throw error;
-        
-        toast({
-          title: "Account created!",
-          description: "Please check your email to verify your account.",
-        });
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
-        
-        if (error) throw error;
-        
-        toast({
-          title: "Welcome back!",
-          description: "You've been signed in successfully.",
-        });
-        navigate("/");
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "An error occurred. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background font-cyber flex items-center justify-center p-4">
@@ -89,7 +42,7 @@ const Auth = () => {
             </div>
           </div>
           <p className="text-muted-foreground">
-            {isSignUp ? "Create an account to start protecting yourself" : "Sign in to access your phishing detector"}
+            Sign in or create an account to start protecting yourself
           </p>
         </div>
 
@@ -97,83 +50,43 @@ const Auth = () => {
         <Card className="shadow-elevated gradient-card border-border/40">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold text-foreground">
-              {isSignUp ? "Create Account" : "Welcome Back"}
+              Welcome to PhishNot
             </CardTitle>
             <CardDescription className="text-muted-foreground">
-              {isSignUp 
-                ? "Join thousands protecting themselves from phishing" 
-                : "Sign in to continue your security journey"}
+              Secure email analysis with AI-powered phishing detection
             </CardDescription>
           </CardHeader>
           
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Email Address
-                </label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 bg-input border-border/40"
-                    required
-                  />
-                </div>
+            <SignedOut>
+              <div className="space-y-4">
+                <SignInButton fallbackRedirectUrl="/" forceRedirectUrl="/">
+                  <Button className="w-full glow-primary" size="lg">
+                    Sign In
+                  </Button>
+                </SignInButton>
+                <SignUpButton fallbackRedirectUrl="/" forceRedirectUrl="/">
+                  <Button variant="outline" className="w-full border-border/40" size="lg">
+                    Create Account
+                  </Button>
+                </SignUpButton>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10 bg-input border-border/40"
-                    required
-                    minLength={6}
-                  />
+            </SignedOut>
+            <SignedIn>
+              <div className="text-center space-y-4">
+                <p className="text-sm text-muted-foreground">You are signed in!</p>
+                <div className="flex justify-center">
+                  <UserButton />
                 </div>
+                <Button 
+                  onClick={() => navigate('/')} 
+                  className="w-full glow-primary"
+                  size="lg"
+                >
+                  Go to App
+                </Button>
               </div>
-              
-              <Button
-                type="submit"
-                disabled={loading}
-                className="w-full glow-primary"
-                size="lg"
-              >
-                {loading ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
-                    {isSignUp ? "Creating Account..." : "Signing In..."}
-                  </>
-                ) : (
-                  <>
-                    {isSignUp ? <User className="w-4 h-4 mr-2" /> : <ArrowRight className="w-4 h-4 mr-2" />}
-                    {isSignUp ? "Create Account" : "Sign In"}
-                  </>
-                )}
-              </Button>
-            </form>
-            
-            <div className="mt-6 text-center">
-              <button
-                type="button"
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-muted-foreground hover:text-primary transition-colors"
-              >
-                {isSignUp 
-                  ? "Already have an account? Sign in" 
-                  : "Don't have an account? Sign up"}
-              </button>
-            </div>
+            </SignedIn>
           </CardContent>
         </Card>
         

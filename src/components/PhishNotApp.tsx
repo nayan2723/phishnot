@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Shield, Upload, AlertTriangle, CheckCircle, FileText, LogOut, User } from "lucide-react";
-import { useAuth } from "@/hooks/useAuth";
+import { Shield, Upload, AlertTriangle, CheckCircle, FileText, User } from "lucide-react";
+import { useUser, UserButton } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,7 +23,7 @@ const PhishNotApp = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const { toast } = useToast();
-  const { user, signOut } = useAuth();
+  const { user } = useUser();
   const navigate = useNavigate();
 
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,17 +107,9 @@ const PhishNotApp = () => {
                 {user ? (
                   <>
                     <span className="text-sm text-muted-foreground hidden sm:block">
-                      {user.email}
+                      {user.emailAddresses[0]?.emailAddress}
                     </span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={signOut}
-                      className="border-border/40"
-                    >
-                      <LogOut className="w-4 h-4 mr-2" />
-                      Sign Out
-                    </Button>
+                    <UserButton />
                   </>
                 ) : (
                   <>
