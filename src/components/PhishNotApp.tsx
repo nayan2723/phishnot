@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface ScanResult {
   isPhishing: boolean;
@@ -104,6 +105,7 @@ const PhishNotApp = () => {
               </div>
               
               <div className="flex items-center space-x-3">
+                <ThemeToggle />
                 {user ? (
                   <>
                     <span className="text-sm text-muted-foreground hidden sm:block">
