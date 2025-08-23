@@ -225,7 +225,7 @@ const PhishNotApp = () => {
                   </span>
                   <input
                     type="file"
-                    accept=".eml,.txt,.msg"
+                    accept=".eml,.txt"
                     onChange={handleFileUpload}
                     className="hidden"
                   />
@@ -328,18 +328,18 @@ const PhishNotApp = () => {
       <footer id="contact" className="border-t border-border/40 py-12 px-4">
         <div className="container mx-auto text-center">
           <div className="flex justify-center space-x-6 mb-6">
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+            <a href="http://github.com/nayan2723" className="text-muted-foreground hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer">
               GitHub
             </a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+            <a href="http://www.linkedin.com/in/nayan-kshitij" className="text-muted-foreground hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer">
               LinkedIn
             </a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors">
+            <a href="https://nayan-dev.vercel.app/" className="text-muted-foreground hover:text-primary transition-colors" target="_blank" rel="noopener noreferrer">
               Portfolio
             </a>
           </div>
           <p className="text-muted-foreground">
-            Made with ❤️ by Nayan
+            Made with ☕ caffeine
           </p>
         </div>
       </footer>

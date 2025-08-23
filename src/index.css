@@ -18,8 +18,8 @@ All colors MUST be HSL.
     --popover: 220 13% 10%;
     --popover-foreground: 210 40% 98%;
 
-    /* Neon green primary for cybersecurity aesthetic */
-    --primary: 142 76% 52%;
+    /* Neon violet/purple primary for cybersecurity aesthetic */
+    --primary: 270 90% 65%;
     --primary-foreground: 220 13% 8%;
 
     /* Deep gray secondary */
@@ -30,8 +30,8 @@ All colors MUST be HSL.
     --muted: 220 13% 12%;
     --muted-foreground: 215 20.2% 65.1%;
 
-    /* Accent color - brighter neon green */
-    --accent: 142 86% 58%;
+    /* Accent color - brighter neon violet */
+    --accent: 280 95% 70%;
     --accent-foreground: 220 13% 8%;
 
     /* Danger/phishing colors - neon red/orange */
@@ -41,7 +41,7 @@ All colors MUST be HSL.
     /* Borders and inputs - subtle gray */
     --border: 220 13% 20%;
     --input: 220 13% 15%;
-    --ring: 142 76% 52%;
+    --ring: 270 90% 65%;
 
     /* Custom cybersecurity colors */
     --success: 142 76% 52%;
@@ -52,13 +52,13 @@ All colors MUST be HSL.
     --info-foreground: 220 13% 8%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(142 76% 52%), hsl(142 86% 58%));
+    --gradient-primary: linear-gradient(135deg, hsl(270 90% 65%), hsl(280 95% 70%));
     --gradient-dark: linear-gradient(135deg, hsl(220 13% 8%), hsl(220 13% 12%));
     --gradient-card: linear-gradient(135deg, hsl(220 13% 10%), hsl(220 13% 12%));
     --gradient-danger: linear-gradient(135deg, hsl(0 75% 60%), hsl(15 85% 55%));
 
     /* Glows and shadows */
-    --glow-primary: 0 0 20px hsl(142 76% 52% / 0.3);
+    --glow-primary: 0 0 20px hsl(270 90% 65% / 0.3);
     --glow-danger: 0 0 20px hsl(0 75% 60% / 0.3);
     --shadow-card: 0 4px 20px hsl(220 13% 4% / 0.5);
     --shadow-elevated: 0 8px 32px hsl(220 13% 4% / 0.6);
@@ -174,7 +174,7 @@ All colors MUST be HSL.
       transform: scale(1);
     }
     50% {
-      box-shadow: 0 0 30px hsl(142 76% 52% / 0.5);
+      box-shadow: 0 0 30px hsl(270 90% 65% / 0.5);
       transform: scale(1.02);
     }
   }
