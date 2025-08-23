@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
+import { emailSchema, validateFile, sanitizeText, type EmailFormData } from "@/utils/validation";
 
 interface ScanResult {
   isPhishing: boolean;
@@ -24,6 +25,7 @@ const PhishNotApp = () => {
   const [file, setFile] = useState<File | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const { toast } = useToast();
   const { user } = useUser();
   const navigate = useNavigate();
@@ -31,11 +33,53 @@ const PhishNotApp = () => {
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
+      const validation = validateFile(selectedFile);
+      
+      if (!validation.isValid) {
+        toast({
+          variant: "destructive",
+          title: "File validation failed",
+          description: validation.errors.join(", "),
+        });
+        return;
+      }
+      
       setFile(selectedFile);
       toast({
-        title: "File uploaded successfully",
+        title: "File uploaded successfully", 
         description: `${selectedFile.name} is ready for analysis.`,
       });
+    }
+  };
+
+  const validateInputs = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    try {
+      // Validate form data if provided
+      if (senderEmail || subject || emailBody) {
+        emailSchema.parse({
+          senderEmail: sanitizeText(senderEmail),
+          subject: sanitizeText(subject),
+          emailBody: sanitizeText(emailBody)
+        });
+      }
+      
+      // Check if at least one input method is provided
+      if (!senderEmail && !subject && !emailBody && !file) {
+        errors.general = "Please provide email details or upload a file";
+      }
+      
+      setValidationErrors(errors);
+      return Object.keys(errors).length === 0;
+    } catch (error: any) {
+      if (error.errors) {
+        error.errors.forEach((err: any) => {
+          errors[err.path[0]] = err.message;
+        });
+      }
+      setValidationErrors(errors);
+      return false;
     }
   };
 
@@ -45,8 +89,18 @@ const PhishNotApp = () => {
       return;
     }
 
+    if (!validateInputs()) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please fix the errors and try again.",
+      });
+      return;
+    }
+
     setIsScanning(true);
     setScanResult(null);
+    setValidationErrors({});
 
     // Simulate API call with dummy data
     setTimeout(() => {
@@ -191,9 +245,12 @@ const PhishNotApp = () => {
                     type="email"
                     placeholder="suspicious@example.com"
                     value={senderEmail}
-                    onChange={(e) => setSenderEmail(e.target.value)}
-                    className="bg-input border-border/40"
+                    onChange={(e) => setSenderEmail(sanitizeText(e.target.value))}
+                    className={`bg-input border-border/40 ${validationErrors.senderEmail ? 'border-destructive' : ''}`}
                   />
+                  {validationErrors.senderEmail && (
+                    <p className="text-sm text-destructive mt-1">{validationErrors.senderEmail}</p>
+                  )}
                 </div>
                 
                 <div>
@@ -204,9 +261,12 @@ const PhishNotApp = () => {
                     type="text"
                     placeholder="Urgent: Verify your account"
                     value={subject}
-                    onChange={(e) => setSubject(e.target.value)}
-                    className="bg-input border-border/40"
+                    onChange={(e) => setSubject(sanitizeText(e.target.value))}
+                    className={`bg-input border-border/40 ${validationErrors.subject ? 'border-destructive' : ''}`}
                   />
+                  {validationErrors.subject && (
+                    <p className="text-sm text-destructive mt-1">{validationErrors.subject}</p>
+                  )}
                 </div>
               </div>
               
@@ -218,20 +278,23 @@ const PhishNotApp = () => {
                   placeholder="Paste the email content here..."
                   rows={8}
                   value={emailBody}
-                  onChange={(e) => setEmailBody(e.target.value)}
-                  className="bg-input border-border/40"
+                  onChange={(e) => setEmailBody(sanitizeText(e.target.value))}
+                  className={`bg-input border-border/40 ${validationErrors.emailBody ? 'border-destructive' : ''}`}
                 />
+                {validationErrors.emailBody && (
+                  <p className="text-sm text-destructive mt-1">{validationErrors.emailBody}</p>
+                )}
               </div>
               
               <div className="border border-dashed border-border/40 rounded-lg p-6 text-center">
                 <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                 <label className="cursor-pointer">
                   <span className="text-foreground hover:text-primary transition-colors">
-                    Click to upload .eml or .txt file
+                    Click to upload .eml, .txt, or .msg file (max 5MB)
                   </span>
                   <input
                     type="file"
-                    accept=".eml,.txt"
+                    accept=".eml,.txt,.msg"
                     onChange={handleFileUpload}
                     className="hidden"
                   />
@@ -241,11 +304,14 @@ const PhishNotApp = () => {
                     ✓ {file.name} uploaded
                   </p>
                 )}
+                {validationErrors.general && (
+                  <p className="text-sm text-destructive mt-2">{validationErrors.general}</p>
+                )}
               </div>
               
               <Button
                 onClick={simulateScan}
-                disabled={isScanning || (!senderEmail && !subject && !emailBody && !file)}
+                disabled={isScanning}
                 size="lg"
                 className={`w-full text-lg py-6 ${isScanning ? 'scan-pulse' : 'glow-primary'}`}
               >
