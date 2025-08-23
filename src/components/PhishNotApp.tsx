@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Shield, Upload, AlertTriangle, CheckCircle, FileText, User } from "lucide-react";
+import { Upload, AlertTriangle, CheckCircle, FileText, User } from "lucide-react";
 import { useUser, UserButton } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Logo } from "@/components/Logo";
 
 interface ScanResult {
   isPhishing: boolean;
@@ -75,7 +76,7 @@ const PhishNotApp = () => {
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <Shield className="w-8 h-8 text-primary glow-primary" />
+              <Logo size="md" className="glow-primary" />
               <div>
                 <h1 className="text-2xl font-bold text-foreground">PhishNot</h1>
                 <p className="text-xs text-muted-foreground">Don't get hooked.</p>
@@ -143,9 +144,12 @@ const PhishNotApp = () => {
       <section id="hero" className="py-20 px-4">
         <div className="container mx-auto text-center">
           <div className="max-w-4xl mx-auto">
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 gradient-primary bg-clip-text text-transparent">
-              PhishNot
-            </h1>
+            <div className="flex flex-col items-center mb-6">
+              <Logo size="xl" className="mb-4 glow-primary" />
+              <h1 className="text-5xl md:text-7xl font-bold gradient-primary bg-clip-text text-transparent">
+                PhishNot
+              </h1>
+            </div>
             <p className="text-xl md:text-2xl text-muted-foreground mb-8">
               Don't get hooked.
             </p>
@@ -252,7 +256,7 @@ const PhishNotApp = () => {
                   </>
                 ) : (
                   <>
-                    <Shield className="w-5 h-5 mr-2" />
+                    <Logo size="sm" className="mr-2" />
                     {user ? 'Scan Now' : 'Sign In to Scan'}
                   </>
                 )}
