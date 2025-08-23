@@ -1,6 +1,6 @@
 import { Shield } from 'lucide-react';
 
-const logoOriginal = '/lovable-uploads/5d176f06-bac6-4e57-ad95-5f3fc22bbdcc.png';
+const logoOriginal = '/lovable-uploads/5d176f06-bac6-4e57-ad95-5f3fc22bbddc.png';
 
 interface LogoProps {
   className?: string;
