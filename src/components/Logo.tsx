@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
 import { Shield } from 'lucide-react';
-import { removeBackground, loadImageFromUrl } from '@/utils/backgroundRemoval';
+
 const logoOriginal = '/lovable-uploads/4d08b3f4-ef6b-4b31-9a6d-802709842b9d.png';
 
 interface LogoProps {
@@ -16,53 +15,34 @@ const sizeMap = {
 };
 
 export const Logo = ({ className = '', size = 'md' }: LogoProps) => {
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    const processLogo = async () => {
-      try {
-        setIsProcessing(true);
-        const img = await loadImageFromUrl(logoOriginal);
-        const blob = await removeBackground(img);
-        const url = URL.createObjectURL(blob);
-        setLogoUrl(url);
-      } catch (err) {
-        console.error('Failed to process logo:', err);
-        setError(true);
-      } finally {
-        setIsProcessing(false);
-      }
-    };
-
-    processLogo();
-
-    // Cleanup
-    return () => {
-      if (logoUrl) {
-        URL.revokeObjectURL(logoUrl);
-      }
-    };
-  }, []);
-
-  if (isProcessing) {
-    return (
-      <div className={`${sizeMap[size]} ${className} animate-pulse bg-muted rounded`} />
-    );
-  }
-
-  if (error || !logoUrl) {
-    return (
-      <Shield className={`${sizeMap[size]} ${className} text-primary glow-primary`} />
-    );
-  }
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const img = e.currentTarget;
+    img.style.display = 'none';
+    
+    // Create fallback shield icon
+    const fallback = document.createElement('div');
+    fallback.className = `${sizeMap[size]} ${className} text-primary glow-primary inline-flex`;
+    fallback.innerHTML = `
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-full h-full">
+        <path d="M20 13c0 5-3.5 7.5-7.5 7.5-1.79 0-3.43-.73-4.61-1.9a.69.69 0 0 1-.22-.5v-.6a.69.69 0 0 1 .22-.5C8.57 16.73 10.21 16 12 16s3.43.73 4.39 1.4c.22.14.22.36 0 .5-.96.67-2.6 1.4-4.39 1.4-1.79 0-3.43-.73-4.39-1.4a.69.69 0 0 1 0-.5C8.57 16.73 10.21 16 12 16s3.43.73 4.39 1.4c.22.14.22.36 0 .5-.96.67-2.6 1.4-4.39 1.4"/>
+        <path d="M9 12h.01"/>
+        <path d="M15 12h.01"/>
+        <path d="M20 4v5a9 9 0 1 1-18 0V4a9 9 0 0 1 18 0Z"/>
+      </svg>
+    `;
+    
+    if (img.parentNode) {
+      img.parentNode.insertBefore(fallback, img.nextSibling);
+    }
+  };
 
   return (
     <img 
-      src={logoUrl} 
+      src={logoOriginal} 
       alt="PhishNot Logo" 
       className={`${sizeMap[size]} ${className} object-contain`}
+      onError={handleImageError}
+      loading="lazy"
     />
   );
 };
