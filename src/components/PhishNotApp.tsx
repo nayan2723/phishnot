@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { emailSchema, validateFile, sanitizeText, type EmailFormData } from "@/utils/validation";
+// Database functions for storing files and analyses
 import { 
   saveUploadedFile, 
   saveEmailAnalysis, 
