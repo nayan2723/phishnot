@@ -1,18 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export interface UserProfile {
-  id: string;
-  clerk_user_id: string;
-  email: string;
-  first_name?: string;
-  last_name?: string;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface UploadedFile {
   id: string;
-  user_id: string;
+  clerk_user_id: string;
   filename: string;
   file_type: string;
   file_size: number;
@@ -22,7 +12,7 @@ export interface UploadedFile {
 
 export interface EmailAnalysis {
   id: string;
-  user_id: string;
+  clerk_user_id: string;
   uploaded_file_id?: string;
   sender_email?: string;
   subject?: string;
@@ -33,41 +23,9 @@ export interface EmailAnalysis {
   analyzed_at: string;
 }
 
-// Create or get user profile
-export const createOrGetUserProfile = async (clerkUserId: string, email: string, firstName?: string, lastName?: string) => {
-  try {
-    // First try to get existing profile
-    const { data: existingProfile } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('clerk_user_id', clerkUserId)
-      .single();
-
-    if (existingProfile) {
-      return { data: existingProfile, error: null };
-    }
-
-    // Create new profile if doesn't exist
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .insert({
-        clerk_user_id: clerkUserId,
-        email,
-        first_name: firstName,
-        last_name: lastName
-      })
-      .select()
-      .single();
-
-    return { data, error };
-  } catch (error) {
-    return { data: null, error };
-  }
-};
-
 // Save uploaded file
 export const saveUploadedFile = async (
-  userId: string,
+  clerkUserId: string,
   file: File,
   content?: string
 ) => {
@@ -75,7 +33,7 @@ export const saveUploadedFile = async (
     const { data, error } = await supabase
       .from('uploaded_files')
       .insert({
-        user_id: userId,
+        clerk_user_id: clerkUserId,
         filename: file.name,
         file_type: file.type || 'text/plain',
         file_size: file.size,
@@ -92,7 +50,7 @@ export const saveUploadedFile = async (
 
 // Save email analysis
 export const saveEmailAnalysis = async (
-  userId: string,
+  clerkUserId: string,
   analysis: {
     uploadedFileId?: string;
     senderEmail?: string;
@@ -107,7 +65,7 @@ export const saveEmailAnalysis = async (
     const { data, error } = await supabase
       .from('email_analyses')
       .insert({
-        user_id: userId,
+        clerk_user_id: clerkUserId,
         uploaded_file_id: analysis.uploadedFileId,
         sender_email: analysis.senderEmail,
         subject: analysis.subject,
@@ -126,7 +84,7 @@ export const saveEmailAnalysis = async (
 };
 
 // Get user's email analyses
-export const getUserAnalyses = async (userId: string) => {
+export const getUserAnalyses = async (clerkUserId: string) => {
   try {
     const { data, error } = await supabase
       .from('email_analyses')
@@ -138,7 +96,7 @@ export const getUserAnalyses = async (userId: string) => {
           file_size
         )
       `)
-      .eq('user_id', userId)
+      .eq('clerk_user_id', clerkUserId)
       .order('analyzed_at', { ascending: false });
 
     return { data, error };
@@ -148,12 +106,12 @@ export const getUserAnalyses = async (userId: string) => {
 };
 
 // Get user's uploaded files
-export const getUserFiles = async (userId: string) => {
+export const getUserFiles = async (clerkUserId: string) => {
   try {
     const { data, error } = await supabase
       .from('uploaded_files')
       .select('*')
-      .eq('user_id', userId)
+      .eq('clerk_user_id', clerkUserId)
       .order('upload_date', { ascending: false });
 
     return { data, error };

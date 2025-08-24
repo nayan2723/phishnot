@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           analysis_reasons: string[] | null
           analyzed_at: string
+          clerk_user_id: string
           confidence_score: number | null
           email_body: string | null
           id: string
@@ -25,11 +26,11 @@ export type Database = {
           sender_email: string | null
           subject: string | null
           uploaded_file_id: string | null
-          user_id: string
         }
         Insert: {
           analysis_reasons?: string[] | null
           analyzed_at?: string
+          clerk_user_id?: string
           confidence_score?: number | null
           email_body?: string | null
           id?: string
@@ -37,11 +38,11 @@ export type Database = {
           sender_email?: string | null
           subject?: string | null
           uploaded_file_id?: string | null
-          user_id: string
         }
         Update: {
           analysis_reasons?: string[] | null
           analyzed_at?: string
+          clerk_user_id?: string
           confidence_score?: number | null
           email_body?: string | null
           id?: string
@@ -49,7 +50,6 @@ export type Database = {
           sender_email?: string | null
           subject?: string | null
           uploaded_file_id?: string | null
-          user_id?: string
         }
         Relationships: [
           {
@@ -59,80 +59,35 @@ export type Database = {
             referencedRelation: "uploaded_files"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "email_analyses_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       uploaded_files: {
         Row: {
+          clerk_user_id: string
           file_content: string | null
           file_size: number
           file_type: string
           filename: string
           id: string
           upload_date: string
-          user_id: string
         }
         Insert: {
+          clerk_user_id?: string
           file_content?: string | null
           file_size: number
           file_type: string
           filename: string
           id?: string
           upload_date?: string
-          user_id: string
         }
         Update: {
+          clerk_user_id?: string
           file_content?: string | null
           file_size?: number
           file_type?: string
           filename?: string
           id?: string
           upload_date?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "uploaded_files_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "user_profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      user_profiles: {
-        Row: {
-          clerk_user_id: string
-          created_at: string
-          email: string
-          first_name: string | null
-          id: string
-          last_name: string | null
-          updated_at: string
-        }
-        Insert: {
-          clerk_user_id: string
-          created_at?: string
-          email: string
-          first_name?: string | null
-          id?: string
-          last_name?: string | null
-          updated_at?: string
-        }
-        Update: {
-          clerk_user_id?: string
-          created_at?: string
-          email?: string
-          first_name?: string | null
-          id?: string
-          last_name?: string | null
-          updated_at?: string
         }
         Relationships: []
       }

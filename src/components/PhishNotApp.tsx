@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Upload, AlertTriangle, CheckCircle, FileText, User } from "lucide-react";
 import { useUser, UserButton } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
@@ -12,11 +12,9 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { emailSchema, validateFile, sanitizeText, type EmailFormData } from "@/utils/validation";
 import { 
-  createOrGetUserProfile, 
   saveUploadedFile, 
   saveEmailAnalysis, 
-  readFileContent,
-  type UserProfile 
+  readFileContent
 } from "@/utils/database";
 
 interface ScanResult {
@@ -33,37 +31,9 @@ const PhishNotApp = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const { toast } = useToast();
   const { user } = useUser();
   const navigate = useNavigate();
-
-  // Create or get user profile when user logs in
-  useEffect(() => {
-    if (user && !userProfile) {
-      const initializeUser = async () => {
-        const email = user.emailAddresses[0]?.emailAddress;
-        const firstName = user.firstName;
-        const lastName = user.lastName;
-        
-        if (email) {
-          const { data, error } = await createOrGetUserProfile(user.id, email, firstName, lastName);
-          if (data && !error) {
-            setUserProfile(data);
-          } else if (error) {
-            console.error('Error creating user profile:', error);
-            toast({
-              variant: "destructive",
-              title: "Profile Error",
-              description: "Failed to create user profile. Some features may not work.",
-            });
-          }
-        }
-      };
-      
-      initializeUser();
-    }
-  }, [user, userProfile, toast]);
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
@@ -82,10 +52,10 @@ const PhishNotApp = () => {
       setFile(selectedFile);
       
       // Save file to database if user is logged in
-      if (userProfile) {
+      if (user) {
         try {
           const fileContent = await readFileContent(selectedFile);
-          const { data, error } = await saveUploadedFile(userProfile.id, selectedFile, fileContent);
+          const { data, error } = await saveUploadedFile(user.id, selectedFile, fileContent);
           
           if (error) {
             console.error('Error saving file:', error);
@@ -178,7 +148,7 @@ const PhishNotApp = () => {
       setScanResult(dummyResult);
       
       // Save analysis to database if user is logged in
-      if (userProfile) {
+      if (user) {
         try {
           const analysisData = {
             senderEmail: sanitizeText(senderEmail) || undefined,
@@ -189,7 +159,7 @@ const PhishNotApp = () => {
             analysisReasons: dummyResult.reasons
           };
           
-          const { error } = await saveEmailAnalysis(userProfile.id, analysisData);
+          const { error } = await saveEmailAnalysis(user.id, analysisData);
           
           if (error) {
             console.error('Error saving analysis:', error);
