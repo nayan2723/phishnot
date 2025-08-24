@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Upload, AlertTriangle, CheckCircle, FileText, User } from "lucide-react";
 import { useUser, UserButton } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
@@ -11,6 +11,13 @@ import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { emailSchema, validateFile, sanitizeText, type EmailFormData } from "@/utils/validation";
+import { 
+  createOrGetUserProfile, 
+  saveUploadedFile, 
+  saveEmailAnalysis, 
+  readFileContent,
+  type UserProfile 
+} from "@/utils/database";
 
 interface ScanResult {
   isPhishing: boolean;
@@ -26,11 +33,39 @@ const PhishNotApp = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const { toast } = useToast();
   const { user } = useUser();
   const navigate = useNavigate();
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Create or get user profile when user logs in
+  useEffect(() => {
+    if (user && !userProfile) {
+      const initializeUser = async () => {
+        const email = user.emailAddresses[0]?.emailAddress;
+        const firstName = user.firstName;
+        const lastName = user.lastName;
+        
+        if (email) {
+          const { data, error } = await createOrGetUserProfile(user.id, email, firstName, lastName);
+          if (data && !error) {
+            setUserProfile(data);
+          } else if (error) {
+            console.error('Error creating user profile:', error);
+            toast({
+              variant: "destructive",
+              title: "Profile Error",
+              description: "Failed to create user profile. Some features may not work.",
+            });
+          }
+        }
+      };
+      
+      initializeUser();
+    }
+  }, [user, userProfile, toast]);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
       const validation = validateFile(selectedFile);
@@ -45,6 +80,31 @@ const PhishNotApp = () => {
       }
       
       setFile(selectedFile);
+      
+      // Save file to database if user is logged in
+      if (userProfile) {
+        try {
+          const fileContent = await readFileContent(selectedFile);
+          const { data, error } = await saveUploadedFile(userProfile.id, selectedFile, fileContent);
+          
+          if (error) {
+            console.error('Error saving file:', error);
+            toast({
+              variant: "destructive",
+              title: "File Save Error",
+              description: "File uploaded but couldn't save to database.",
+            });
+          }
+        } catch (error) {
+          console.error('Error reading file:', error);
+          toast({
+            variant: "destructive", 
+            title: "File Read Error",
+            description: "Could not read file contents.",
+          });
+        }
+      }
+      
       toast({
         title: "File uploaded successfully", 
         description: `${selectedFile.name} is ready for analysis.`,
@@ -83,7 +143,7 @@ const PhishNotApp = () => {
     }
   };
 
-  const simulateScan = () => {
+  const simulateScan = async () => {
     if (!user) {
       navigate('/auth');
       return;
@@ -103,7 +163,7 @@ const PhishNotApp = () => {
     setValidationErrors({});
 
     // Simulate API call with dummy data
-    setTimeout(() => {
+    setTimeout(async () => {
       const dummyResult: ScanResult = {
         isPhishing: Math.random() > 0.5,
         confidence: Math.floor(Math.random() * 30) + 70, // 70-99%
@@ -114,7 +174,41 @@ const PhishNotApp = () => {
           "Unusual attachment format identified"
         ]
       };
+      
       setScanResult(dummyResult);
+      
+      // Save analysis to database if user is logged in
+      if (userProfile) {
+        try {
+          const analysisData = {
+            senderEmail: sanitizeText(senderEmail) || undefined,
+            subject: sanitizeText(subject) || undefined,
+            emailBody: sanitizeText(emailBody) || undefined,
+            isPhishing: dummyResult.isPhishing,
+            confidenceScore: dummyResult.confidence,
+            analysisReasons: dummyResult.reasons
+          };
+          
+          const { error } = await saveEmailAnalysis(userProfile.id, analysisData);
+          
+          if (error) {
+            console.error('Error saving analysis:', error);
+            toast({
+              variant: "destructive",
+              title: "Save Error", 
+              description: "Analysis completed but couldn't save to database.",
+            });
+          } else {
+            toast({
+              title: "Analysis Complete",
+              description: "Email analysis saved to your history.",
+            });
+          }
+        } catch (error) {
+          console.error('Error saving analysis:', error);
+        }
+      }
+      
       setIsScanning(false);
     }, 1500);
   };
