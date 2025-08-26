@@ -12,7 +12,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { CyberScene } from "@/components/3d/CyberScene";
 import { ResponsiveScanner } from "@/components/ResponsiveScanner";
-import { ThreatIntelligence } from "@/components/ThreatIntelligence";
+import { SecurityFeatures } from "@/components/SecurityFeatures";
 
 const PhishNotApp = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -65,7 +65,7 @@ const PhishNotApp = () => {
                   onClick={() => scrollToSection('intelligence')}
                   className="text-foreground hover:text-primary transition-colors font-medium"
                 >
-                  Intelligence
+                  Features
                 </button>
                 <button 
                   onClick={() => scrollToSection('about')}
@@ -167,7 +167,7 @@ const PhishNotApp = () => {
                     }}
                     className="text-foreground hover:text-primary transition-colors font-medium text-left"
                   >
-                    Intelligence
+                    Features
                   </button>
                   <button 
                     onClick={() => {
@@ -277,39 +277,43 @@ const PhishNotApp = () => {
                 className="text-lg px-8 py-6 border-border/40 min-w-[200px]"
               >
                 <Globe className="w-5 h-5 mr-2" />
-                View Intelligence
+                View Features
               </Button>
             </motion.div>
 
-            {/* Stats Row */}
+            {/* Trust Indicators */}
             <motion.div
               initial={{ y: 50, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 1, duration: 0.6 }}
-              className="grid grid-cols-2 lg:grid-cols-4 gap-6 mt-16 max-w-4xl mx-auto"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-16 max-w-4xl mx-auto"
             >
               <Card className="text-center bg-background/80 backdrop-blur border-border/40">
                 <CardContent className="pt-4 pb-4">
-                  <div className="text-2xl font-bold text-primary">99.9%</div>
-                  <div className="text-xs text-muted-foreground">Accuracy</div>
+                  <Shield className="w-8 h-8 text-primary mx-auto mb-2" />
+                  <div className="text-sm font-medium text-foreground">AI-Powered</div>
+                  <div className="text-xs text-muted-foreground">Advanced Detection</div>
                 </CardContent>
               </Card>
               <Card className="text-center bg-background/80 backdrop-blur border-border/40">
                 <CardContent className="pt-4 pb-4">
-                  <div className="text-2xl font-bold text-success">850K+</div>
-                  <div className="text-xs text-muted-foreground">Threats Blocked</div>
+                  <Globe className="w-8 h-8 text-success mx-auto mb-2" />
+                  <div className="text-sm font-medium text-foreground">Real-Time</div>
+                  <div className="text-xs text-muted-foreground">Threat Analysis</div>
                 </CardContent>
               </Card>
               <Card className="text-center bg-background/80 backdrop-blur border-border/40">
                 <CardContent className="pt-4 pb-4">
-                  <div className="text-2xl font-bold text-info">12K+</div>
-                  <div className="text-xs text-muted-foreground">Users Protected</div>
+                  <Users className="w-8 h-8 text-info mx-auto mb-2" />
+                  <div className="text-sm font-medium text-foreground">User-Friendly</div>
+                  <div className="text-xs text-muted-foreground">Easy to Use</div>
                 </CardContent>
               </Card>
               <Card className="text-center bg-background/80 backdrop-blur border-border/40">
                 <CardContent className="pt-4 pb-4">
-                  <div className="text-2xl font-bold text-warning">24/7</div>
-                  <div className="text-xs text-muted-foreground">Monitoring</div>
+                  <TrendingUp className="w-8 h-8 text-warning mx-auto mb-2" />
+                  <div className="text-sm font-medium text-foreground">Continuous</div>
+                  <div className="text-xs text-muted-foreground">Improvement</div>
                 </CardContent>
               </Card>
             </motion.div>
@@ -320,9 +324,9 @@ const PhishNotApp = () => {
       {/* Enhanced Scanner Section */}
       <ResponsiveScanner />
 
-      {/* Threat Intelligence Section */}
+      {/* Security Features Section */}
       <div id="intelligence">
-        <ThreatIntelligence />
+        <SecurityFeatures />
       </div>
 
       {/* Enhanced About Section */}

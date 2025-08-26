@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, AlertTriangle, CheckCircle, FileText, User, Shield, Zap, Eye } from "lucide-react";
+import { Upload, AlertTriangle, CheckCircle, FileText, User, Shield, Zap, Eye, X } from "lucide-react";
 import { useUser, UserButton } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -222,6 +222,14 @@ export const ResponsiveScanner = () => {
     setValidationErrors({});
   };
 
+  const cancelFileUpload = () => {
+    setFile(null);
+    toast({
+      title: "File removed",
+      description: "Upload cancelled successfully.",
+    });
+  };
+
   const stepVariants = {
     hidden: { opacity: 0, x: 50 },
     visible: { opacity: 1, x: 0 },
@@ -379,13 +387,24 @@ export const ResponsiveScanner = () => {
                       />
                     </label>
                     {file && (
-                      <motion.p 
+                      <motion.div 
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className="mt-2 text-sm text-primary font-medium"
+                        className="mt-3 flex items-center justify-between p-3 bg-primary/10 rounded-lg border border-primary/20"
                       >
-                        ✓ {file.name} uploaded
-                      </motion.p>
+                        <div className="flex items-center gap-2 text-sm text-primary font-medium">
+                          <FileText className="w-4 h-4" />
+                          ✓ {file.name}
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={cancelFileUpload}
+                          className="text-muted-foreground hover:text-destructive h-6 w-6 p-0"
+                        >
+                          <X className="w-4 h-4" />
+                        </Button>
+                      </motion.div>
                     )}
                     {validationErrors.general && (
                       <p className="text-sm text-destructive mt-2">{validationErrors.general}</p>
