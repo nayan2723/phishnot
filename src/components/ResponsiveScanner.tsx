@@ -33,43 +33,72 @@ export const ResponsiveScanner = () => {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [currentStep, setCurrentStep] = useState(1);
+  const [isDragOver, setIsDragOver] = useState(false);
   const { toast } = useToast();
   const { user } = useUser();
   const navigate = useNavigate();
 
+  const processFile = async (selectedFile: File) => {
+    const validation = validateFile(selectedFile);
+    
+    if (!validation.isValid) {
+      toast({
+        variant: "destructive",
+        title: "File validation failed",
+        description: validation.errors.join(", "),
+      });
+      return;
+    }
+    
+    setFile(selectedFile);
+    
+    if (user) {
+      try {
+        const fileContent = await readFileContent(selectedFile);
+        const { data, error } = await saveUploadedFile(user.id, selectedFile, fileContent);
+        
+        if (error) {
+          console.error('Error saving file:', error);
+        }
+      } catch (error) {
+        console.error('Error reading file:', error);
+      }
+    }
+    
+    toast({
+      title: "File uploaded successfully", 
+      description: `${selectedFile.name} is ready for analysis.`,
+    });
+  };
+
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
-      const validation = validateFile(selectedFile);
-      
-      if (!validation.isValid) {
-        toast({
-          variant: "destructive",
-          title: "File validation failed",
-          description: validation.errors.join(", "),
-        });
-        return;
-      }
-      
-      setFile(selectedFile);
-      
-      if (user) {
-        try {
-          const fileContent = await readFileContent(selectedFile);
-          const { data, error } = await saveUploadedFile(user.id, selectedFile, fileContent);
-          
-          if (error) {
-            console.error('Error saving file:', error);
-          }
-        } catch (error) {
-          console.error('Error reading file:', error);
-        }
-      }
-      
-      toast({
-        title: "File uploaded successfully", 
-        description: `${selectedFile.name} is ready for analysis.`,
-      });
+      await processFile(selectedFile);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      const selectedFile = files[0];
+      await processFile(selectedFile);
     }
   };
 
@@ -314,12 +343,33 @@ export const ResponsiveScanner = () => {
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.4 }}
-                    className="border border-dashed border-border/40 rounded-lg p-6 text-center"
+                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-all duration-300 cursor-pointer ${
+                      isDragOver 
+                        ? 'border-primary bg-primary/10 scale-105' 
+                        : 'border-border/40 hover:border-primary/50 hover:bg-primary/5'
+                    }`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
                   >
-                    <FileText className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                    <label className="cursor-pointer">
-                      <span className="text-foreground hover:text-primary transition-colors">
-                        Click to upload .eml, .txt, or .msg file (max 5MB)
+                    <motion.div
+                      animate={isDragOver ? { scale: 1.1 } : { scale: 1 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <FileText className={`w-8 h-8 mx-auto mb-2 transition-colors ${
+                        isDragOver ? 'text-primary' : 'text-muted-foreground'
+                      }`} />
+                    </motion.div>
+                    <label className="cursor-pointer block">
+                      <span className={`transition-colors ${
+                        isDragOver 
+                          ? 'text-primary font-medium' 
+                          : 'text-foreground hover:text-primary'
+                      }`}>
+                        {isDragOver 
+                          ? 'Drop your file here' 
+                          : 'Click to upload or drag & drop .eml, .txt, or .msg file (max 5MB)'
+                        }
                       </span>
                       <input
                         type="file"
@@ -329,9 +379,13 @@ export const ResponsiveScanner = () => {
                       />
                     </label>
                     {file && (
-                      <p className="mt-2 text-sm text-primary">
+                      <motion.p 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-2 text-sm text-primary font-medium"
+                      >
                         ✓ {file.name} uploaded
-                      </p>
+                      </motion.p>
                     )}
                     {validationErrors.general && (
                       <p className="text-sm text-destructive mt-2">{validationErrors.general}</p>
