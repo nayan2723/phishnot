@@ -34,17 +34,18 @@ const PhishNotApp = () => {
       <header className="sticky top-0 z-50 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <motion.div 
+            <motion.button 
               initial={{ x: -50, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              className="flex items-center space-x-3"
+              onClick={() => scrollToSection('scanner')}
+              className="flex items-center space-x-3 hover:opacity-80 transition-opacity cursor-pointer"
             >
               <Logo size="md" className="glow-primary" />
               <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-foreground">PhishNot</h1>
                 <p className="text-xs text-muted-foreground hidden sm:block">AI-Powered Cybersecurity</p>
               </div>
-            </motion.div>
+            </motion.button>
             
             {/* Desktop Navigation */}
             <nav className="hidden lg:flex items-center space-x-6">
