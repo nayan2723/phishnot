@@ -153,15 +153,50 @@ export const ResponsiveScanner = () => {
     setCurrentStep(2);
 
     try {
-      // Extract links from email body
+      // Get email content - either from text input or uploaded file
+      let emailContent = emailBody;
+      let senderInfo = senderEmail;
+      let subjectInfo = subject;
+
+      // If file is uploaded, extract content from it
+      if (file) {
+        try {
+          const fileContent = await readFileContent(file);
+          emailContent = fileContent;
+          
+          // Try to extract sender and subject from email headers if it's an .eml file
+          if (file.name.toLowerCase().endsWith('.eml')) {
+            const fromMatch = fileContent.match(/^From:\s*(.+)$/m);
+            const subjectMatch = fileContent.match(/^Subject:\s*(.+)$/m);
+            
+            if (fromMatch && !senderEmail) {
+              senderInfo = fromMatch[1].trim();
+            }
+            if (subjectMatch && !subject) {
+              subjectInfo = subjectMatch[1].trim();
+            }
+          }
+        } catch (error) {
+          console.error('Error reading file content:', error);
+          toast({
+            variant: "destructive",
+            title: "File Error",
+            description: "Could not read file content. Please try pasting the email text instead.",
+          });
+          setIsScanning(false);
+          return;
+        }
+      }
+
+      // Extract links from email content
       const linkRegex = /https?:\/\/[^\s<>"]+/gi;
-      const links = emailBody.match(linkRegex) || [];
+      const links = emailContent.match(linkRegex) || [];
 
       const response = await supabase.functions.invoke('detect', {
         body: {
-          email_text: emailBody,
-          sender: senderEmail,
-          subject: subject,
+          email_text: emailContent,
+          sender: senderInfo,
+          subject: subjectInfo,
           links: links,
           clerk_user_id: user?.id
         }
