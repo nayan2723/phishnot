@@ -15,12 +15,13 @@ import {
   saveEmailAnalysis, 
   readFileContent
 } from "@/utils/database";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ScanResult {
   isPhishing: boolean;
   confidence: number;
   reasons: string[];
-  riskLevel: 'Low' | 'Medium' | 'High' | 'Critical';
+  riskLevel: 'low' | 'medium' | 'high';
   detectedPatterns: string[];
 }
 
@@ -131,7 +132,7 @@ export const ResponsiveScanner = () => {
     }
   };
 
-  const simulateScan = async () => {
+  const performRealScan = async () => {
     if (!user) {
       navigate('/auth');
       return;
@@ -151,65 +152,65 @@ export const ResponsiveScanner = () => {
     setValidationErrors({});
     setCurrentStep(2);
 
-    setTimeout(async () => {
-      const isPhishing = Math.random() > 0.6;
-      const confidence = Math.floor(Math.random() * 30) + 70;
+    try {
+      // Extract links from email body
+      const linkRegex = /https?:\/\/[^\s<>"]+/gi;
+      const links = emailBody.match(linkRegex) || [];
+
+      const response = await supabase.functions.invoke('detect', {
+        body: {
+          email_text: emailBody,
+          sender: senderEmail,
+          subject: subject,
+          links: links,
+          clerk_user_id: user?.id
+        }
+      });
+
+      if (response.error) {
+        console.error('Detection API error:', response.error);
+        throw new Error('Analysis failed');
+      }
+
+      const result = response.data;
       
-      const dummyResult: ScanResult = {
-        isPhishing,
-        confidence,
-        riskLevel: isPhishing ? 
-          (confidence > 90 ? 'Critical' : confidence > 80 ? 'High' : 'Medium') : 
-          'Low',
-        reasons: isPhishing ? [
-          "Suspicious URL detected: http://fakebank-login.com",
-          "Sender domain doesn't match claimed organization", 
-          "Urgent language patterns detected",
-          "Unusual attachment format identified",
-          "IP address reputation flagged"
-        ] : [
-          "Legitimate domain verified",
-          "No suspicious patterns detected",
-          "Sender reputation is good"
-        ],
-        detectedPatterns: isPhishing ? [
-          "Typosquatting domains",
-          "Social engineering tactics",
-          "Credential harvesting attempts"
-        ] : [
-          "Standard business communication"
-        ]
+      const scanResult: ScanResult = {
+        isPhishing: result.result === 'phishing',
+        confidence: Math.round(result.confidence * 100),
+        reasons: result.reasons || [],
+        riskLevel: result.risk_level || 'low',
+        detectedPatterns: result.detected_patterns || []
       };
-      
-      setScanResult(dummyResult);
+
+      setScanResult(scanResult);
       setCurrentStep(3);
       
-      if (user) {
-        try {
-          const analysisData = {
-            senderEmail: sanitizeText(senderEmail) || undefined,
-            subject: sanitizeText(subject) || undefined,
-            emailBody: sanitizeText(emailBody) || undefined,
-            isPhishing: dummyResult.isPhishing,
-            confidenceScore: dummyResult.confidence,
-            analysisReasons: dummyResult.reasons
-          };
-          
-          const { error } = await saveEmailAnalysis(user.id, analysisData);
-          
-          if (!error) {
-            toast({
-              title: "Analysis Complete",
-              description: "Email analysis saved to your history.",
-            });
-          }
-        } catch (error) {
-          console.error('Error saving analysis:', error);
-        }
-      }
+      toast({
+        title: "Analysis Complete",
+        description: "Email analysis saved to your history.",
+      });
+    } catch (error) {
+      console.error('Analysis error:', error);
+      // Fallback analysis
+      const fallbackResult: ScanResult = {
+        isPhishing: false,
+        confidence: 10,
+        reasons: ['Analysis service temporarily unavailable - using basic checks'],
+        riskLevel: 'low',
+        detectedPatterns: ['service_unavailable']
+      };
       
-      setIsScanning(false);
-    }, 2500);
+      setScanResult(fallbackResult);
+      setCurrentStep(3);
+      
+      toast({
+        variant: "destructive",
+        title: "Analysis Service Error",
+        description: "Using basic analysis. Please try again later for full AI analysis.",
+      });
+    }
+    
+    setIsScanning(false);
   };
 
   const resetScanner = () => {
@@ -417,7 +418,7 @@ export const ResponsiveScanner = () => {
                     transition={{ delay: 0.5 }}
                   >
                     <Button
-                      onClick={simulateScan}
+                      onClick={performRealScan}
                       disabled={isScanning}
                       size="lg"
                       className="w-full text-lg py-6 glow-primary pulse-glow"
@@ -531,13 +532,12 @@ export const ResponsiveScanner = () => {
                     <div>
                       <Badge 
                         variant={
-                          scanResult.riskLevel === 'Critical' ? 'destructive' :
-                          scanResult.riskLevel === 'High' ? 'destructive' :
-                          scanResult.riskLevel === 'Medium' ? 'default' :
+                          scanResult.riskLevel === 'high' ? 'destructive' :
+                          scanResult.riskLevel === 'medium' ? 'default' :
                           'secondary'
                         }
                       >
-                        Risk Level: {scanResult.riskLevel}
+                        Risk Level: {scanResult.riskLevel.charAt(0).toUpperCase() + scanResult.riskLevel.slice(1)}
                       </Badge>
                     </div>
                   </CardDescription>
