@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Clock, AlertTriangle, CheckCircle, FileText, Trash2 } from "lucide-react";
-import { useUser } from "@clerk/clerk-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Download, Share2, Clock, Mail, AlertTriangle, CheckCircle, FileText } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { motion } from 'framer-motion';
+import { useUser } from '@clerk/clerk-react';
 
 interface AnalysisHistoryItem {
   id: string;
@@ -76,6 +76,89 @@ export const AnalysisHistory = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const exportAnalysis = async (analysis: any, format: 'pdf' | 'csv') => {
+    try {
+      const response = await fetch(`https://jpxnekifttziwkiiptlv.supabase.co/functions/v1/export-report`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5la2lmdHR6aXdraWlwdGx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NDk0NDgsImV4cCI6MjA3MTQyNTQ0OH0.WDLMYC66wqJC_FSXuLzoIXb2WiPzM9Vo0hmYBaULDIY`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          analysis_id: analysis.id,
+          format: format,
+          clerk_user_id: user?.id
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      // Download the file
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `phishnot-report-${analysis.id.substring(0, 8)}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Export Complete",
+        description: `Analysis exported as ${format.toUpperCase()}`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export analysis",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const shareAnalysis = async (analysis: any) => {
+    try {
+      const response = await fetch(`https://jpxnekifttziwkiiptlv.supabase.co/functions/v1/export-report`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5la2lmdHR6aXdraWlwdGx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NDk0NDgsImV4cCI6MjA3MTQyNTQ0OH0.WDLMYC66wqJC_FSXuLzoIXb2WiPzM9Vo0hmYBaULDIY`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          analysis_id: analysis.id,
+          action: 'share',
+          clerk_user_id: user?.id
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Share failed');
+      }
+
+      const data = await response.json();
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(data.shareUrl);
+
+      toast({
+        title: "Share Link Created",
+        description: "Shareable link copied to clipboard! Valid for 7 days.",
+      });
+    } catch (error) {
+      console.error('Share error:', error);
+      toast({
+        title: "Share Failed",
+        description: "Failed to create share link",
+        variant: "destructive",
+      });
     }
   };
 
@@ -189,6 +272,32 @@ export const AnalysisHistory = () => {
                           <Badge variant="outline">
                             {Math.round(analysis.confidence * 100)}% confidence
                           </Badge>
+                          <div className="ml-auto flex items-center space-x-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                exportAnalysis(analysis, 'pdf');
+                              }}
+                              className="h-8 px-2"
+                            >
+                              <Download className="h-3 w-3 mr-1" />
+                              PDF
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                shareAnalysis(analysis);
+                              }}
+                              className="h-8 px-2"
+                            >
+                              <Share2 className="h-3 w-3 mr-1" />
+                              Share
+                            </Button>
+                          </div>
                         </div>
                         <div className="space-y-1">
                           <div className="font-medium text-foreground truncate">
