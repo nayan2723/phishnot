@@ -125,8 +125,8 @@ export default function CompletePhishNotApp() {
 
       {/* Main Content */}
       <main className="relative">
-        {currentView === 'scanner' && <ResponsiveScanner clerkUserId={clerkUserId} />}
-        {currentView === 'history' && <AnalysisHistory clerkUserId={clerkUserId} />}
+        {currentView === 'scanner' && <ResponsiveScanner />}
+        {currentView === 'history' && <AnalysisHistory />}
         {currentView === 'dashboard' && <Dashboard clerkUserId={clerkUserId} />}
         {currentView === 'settings' && <NotificationSettings clerkUserId={clerkUserId} />}
       </main>
