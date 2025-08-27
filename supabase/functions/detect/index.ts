@@ -591,7 +591,7 @@ function combineResults(
   // Apply history-based adjustment
   const combinedScore = Math.max(0, Math.min(1, baseScore + historyResult.adjustmentScore));
   
-  // Determine final result with adaptive threshold
+  // Determine final result with adaptive logic
   // If any method gives a high score (>0.7), be more cautious
   const highConfidenceDetection = Math.max(
     ruleResult.score, 
@@ -600,10 +600,38 @@ function combineResults(
     safeBrowsingResult.score
   ) > 0.7;
   
+  // Combine all detected patterns for pattern-based analysis
+  const allPatterns = [
+    ...ruleResult.patterns,
+    ...geminiResult.patterns,
+    ...perplexityResult.patterns,
+    ...safeBrowsingResult.patterns
+  ].filter(pattern => pattern && pattern.length > 0);
+  
+  // Critical phishing patterns that should trigger phishing classification regardless of score
+  const criticalPatterns = ['social_engineering', 'impersonation', 'brand_spoofing', 'safe_browsing_threat', 'credential_harvesting', 'domain_spoofing'];
+  const hasCriticalPatterns = allPatterns.some(pattern => criticalPatterns.includes(pattern));
+  
+  // Multiple pattern detection - if 3+ patterns detected, likely phishing
+  const multiplePatterns = allPatterns.length >= 3;
+  
   // Safe Browsing gets special priority - if it flags something, lower the threshold
   const safeBrowsingDetected = safeBrowsingResult.score > 0.5;
-  const threshold = safeBrowsingDetected ? 0.3 : (highConfidenceDetection ? 0.4 : 0.5);
-  const isPhishing = combinedScore > threshold;
+  
+  // Improved threshold logic
+  let threshold = 0.5; // default
+  if (safeBrowsingDetected) {
+    threshold = 0.2; // Very low threshold for known malicious URLs
+  } else if (hasCriticalPatterns) {
+    threshold = 0.3; // Lower threshold for critical patterns
+  } else if (multiplePatterns) {
+    threshold = 0.35; // Lower threshold for multiple patterns
+  } else if (highConfidenceDetection) {
+    threshold = 0.4; // Lower threshold for high confidence
+  }
+  
+  // Final determination: phishing if score exceeds threshold OR critical patterns detected
+  const isPhishing = combinedScore > threshold || hasCriticalPatterns || safeBrowsingDetected;
   
   // Calculate confidence based on agreement between methods
   const scores = [ruleResult.score, geminiResult.score, perplexityResult.score, safeBrowsingResult.score]
@@ -628,16 +656,16 @@ function combineResults(
       : Math.min(0.99, (1 - combinedScore) + (agreement * 0.2));
   }
   
-  // Determine risk level based on combined score and individual high scores
+  // Determine risk level based on combined score and patterns detected
   let risk_level: 'low' | 'medium' | 'high';
-  if (safeBrowsingDetected) {
-    risk_level = 'high'; // Safe Browsing detection always high risk
+  if (safeBrowsingDetected || hasCriticalPatterns) {
+    risk_level = 'high'; // Safe Browsing detection or critical patterns always high risk
+  } else if (multiplePatterns || combinedScore > 0.5) {
+    risk_level = 'medium'; // Multiple patterns or moderate score = medium risk
   } else if (combinedScore < 0.3 && !highConfidenceDetection) {
     risk_level = 'low';
-  } else if (combinedScore < 0.6 && !highConfidenceDetection) {
-    risk_level = 'medium';
   } else {
-    risk_level = 'high';
+    risk_level = 'medium'; // Default to medium for borderline cases
   }
   
   // Combine reasons and patterns from all methods including history
