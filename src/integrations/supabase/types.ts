@@ -91,6 +91,80 @@ export type Database = {
         }
         Relationships: []
       }
+      url_reputation: {
+        Row: {
+          check_count: number
+          created_at: string
+          id: string
+          last_checked: string
+          reputation_score: number
+          safe_browsing_status: string | null
+          updated_at: string
+          url_domain: string
+        }
+        Insert: {
+          check_count?: number
+          created_at?: string
+          id?: string
+          last_checked?: string
+          reputation_score?: number
+          safe_browsing_status?: string | null
+          updated_at?: string
+          url_domain: string
+        }
+        Update: {
+          check_count?: number
+          created_at?: string
+          id?: string
+          last_checked?: string
+          reputation_score?: number
+          safe_browsing_status?: string | null
+          updated_at?: string
+          url_domain?: string
+        }
+        Relationships: []
+      }
+      user_feedback: {
+        Row: {
+          analysis_id: string | null
+          clerk_user_id: string
+          created_at: string
+          feedback_reason: string | null
+          id: string
+          original_result: string
+          updated_at: string
+          user_feedback: string
+        }
+        Insert: {
+          analysis_id?: string | null
+          clerk_user_id: string
+          created_at?: string
+          feedback_reason?: string | null
+          id?: string
+          original_result: string
+          updated_at?: string
+          user_feedback: string
+        }
+        Update: {
+          analysis_id?: string | null
+          clerk_user_id?: string
+          created_at?: string
+          feedback_reason?: string | null
+          id?: string
+          original_result?: string
+          updated_at?: string
+          user_feedback?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_feedback_analysis_id_fkey"
+            columns: ["analysis_id"]
+            isOneToOne: false
+            referencedRelation: "email_analyses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
