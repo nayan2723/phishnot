@@ -109,43 +109,92 @@ export default function Dashboard({ clerkUserId }: DashboardProps) {
 
   const exportAnalytics = async (format: 'pdf' | 'csv') => {
     try {
+      console.log('Starting dashboard export, format:', format);
+      
       // Create a summary analysis for export
       const summaryAnalysis = {
         id: 'dashboard-summary',
-        sender_email: 'Dashboard Summary',
-        subject: `Analytics Report - ${period.charAt(0).toUpperCase() + period.slice(1)}`,
+        sender_email: 'Dashboard Summary Export',
+        subject: `PhishNot Analytics Report - ${period.charAt(0).toUpperCase() + period.slice(1)}`,
         is_phishing: false,
         confidence_score: 100,
         analysis_reasons: [
+          `Period: ${period}`,
           `Total scans: ${data?.period_analytics.total_scans || 0}`,
           `Phishing detected: ${data?.period_analytics.phishing_detected || 0}`,
           `Safe emails: ${data?.period_analytics.safe_emails || 0}`,
           `Average confidence: ${data?.period_analytics.avg_confidence || 0}%`,
-          ...(data?.top_domains.map(d => `Top domain: ${d.domain} (${d.count} emails)`) || [])
+          `Top domains: ${data?.top_domains.map(d => `${d.domain} (${d.count} emails)`).join(', ') || 'None'}`,
+          `Rate limit usage: ${data?.rate_limit.requests_used}/${data?.rate_limit.requests_limit}`,
+          `Threat trend: ${data?.threat_trends.increasing ? 'Increasing' : 'Stable'} (${Math.abs(data?.threat_trends.percentage_change || 0)}%)`
         ],
         analyzed_at: new Date().toISOString()
       };
 
-      const { data: result, error } = await supabase.functions.invoke('export-report', {
-        body: {
+      console.log('Summary analysis created:', summaryAnalysis);
+
+      const response = await fetch(`https://jpxnekifttziwkiiptlv.supabase.co/functions/v1/export-report`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5la2lmdHR6aXdraWlwdGx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NDk0NDgsImV4cCI6MjA3MTQyNTQ0OH0.WDLMYC66wqJC_FSXuLzoIXb2WiPzM9Vo0hmYBaULDIY`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
           analysis_id: 'dashboard-summary',
           format,
           clerk_user_id: clerkUserId,
           custom_analysis: summaryAnalysis
-        }
+        })
       });
 
-      if (error) throw error;
+      console.log('Dashboard export response status:', response.status);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Dashboard export failed:', errorText);
+        throw new Error(`Export failed: ${response.status} - ${errorText}`);
+      }
+
+      // Check if response is actually the file
+      const contentType = response.headers.get('content-type');
+      console.log('Dashboard export content type:', contentType);
+
+      if (contentType?.includes('application/json')) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Export failed');
+      }
+
+      // Download the file
+      const blob = await response.blob();
+      console.log('Dashboard export blob size:', blob.size);
+      
+      if (blob.size === 0) {
+        throw new Error('Received empty file');
+      }
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `phishnot-dashboard-${period}-${new Date().toISOString().split('T')[0]}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      
+      // Clean up
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
 
       toast({
         title: "Export Complete",
         description: `Dashboard analytics exported as ${format.toUpperCase()}`,
       });
     } catch (error) {
-      console.error('Export error:', error);
+      console.error('Dashboard export error:', error);
       toast({
         title: "Export Failed",
-        description: "Failed to export analytics",
+        description: error instanceof Error ? error.message : "Failed to export analytics",
         variant: "destructive",
       });
     }

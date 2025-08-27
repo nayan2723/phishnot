@@ -81,6 +81,8 @@ export const AnalysisHistory = () => {
 
   const exportAnalysis = async (analysis: any, format: 'pdf' | 'csv') => {
     try {
+      console.log('Starting export for analysis:', analysis.id, 'format:', format);
+      
       const response = await fetch(`https://jpxnekifttziwkiiptlv.supabase.co/functions/v1/export-report`, {
         method: 'POST',
         headers: {
@@ -94,12 +96,32 @@ export const AnalysisHistory = () => {
         })
       });
 
+      console.log('Export response status:', response.status);
+
       if (!response.ok) {
-        throw new Error('Export failed');
+        const errorText = await response.text();
+        console.error('Export failed with error:', errorText);
+        throw new Error(`Export failed: ${response.status} - ${errorText}`);
+      }
+
+      // Check if response is actually the file
+      const contentType = response.headers.get('content-type');
+      console.log('Response content type:', contentType);
+
+      if (contentType?.includes('application/json')) {
+        // This means there was an error returned as JSON
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Export failed');
       }
 
       // Download the file
       const blob = await response.blob();
+      console.log('Downloaded blob size:', blob.size);
+      
+      if (blob.size === 0) {
+        throw new Error('Received empty file');
+      }
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
@@ -107,8 +129,12 @@ export const AnalysisHistory = () => {
       a.download = `phishnot-report-${analysis.id.substring(0, 8)}.${format}`;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      
+      // Clean up
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
 
       toast({
         title: "Export Complete",
@@ -118,7 +144,7 @@ export const AnalysisHistory = () => {
       console.error('Export error:', error);
       toast({
         title: "Export Failed",
-        description: "Failed to export analysis",
+        description: error instanceof Error ? error.message : "Failed to export analysis",
         variant: "destructive",
       });
     }
