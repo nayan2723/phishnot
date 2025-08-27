@@ -140,16 +140,16 @@ function ruleBasedDetection(email_text: string, sender?: string, subject?: strin
   return { score: Math.min(score, 1), reasons, patterns };
 }
 
-// Enhanced ML analysis using OpenAI
-async function mlAnalysis(email_text: string, sender?: string, subject?: string): Promise<{
+// Enhanced AI analysis using Google Gemini for content analysis
+async function geminiAnalysis(email_text: string, sender?: string, subject?: string): Promise<{
   score: number;
   reasons: string[];
   patterns: string[];
 }> {
   try {
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!openAIApiKey) {
-      console.log('OpenAI API key not found, skipping ML analysis');
+    const geminiApiKey = Deno.env.get('GOOGLE_GEMINI_API_KEY');
+    if (!geminiApiKey) {
+      console.log('Google Gemini API key not found, skipping Gemini analysis');
       return { score: 0, reasons: [], patterns: [] };
     }
 
@@ -157,90 +157,217 @@ async function mlAnalysis(email_text: string, sender?: string, subject?: string)
 Sender: ${sender || 'Unknown sender'}
 Content: ${email_text}`;
 
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: `You are a cybersecurity expert specializing in phishing detection. Analyze the email and return a JSON response with:
-            - "score": float between 0-1 (0=safe, 1=definitely phishing)
-            - "reasons": array of specific reasons why this might be phishing
-            - "patterns": array of detected attack patterns (e.g., "social_engineering", "credential_theft", "impersonation", "malware_delivery")
-            
-            Be precise and focus on concrete indicators like suspicious language, impersonation attempts, social engineering tactics, and credential harvesting.`
-          },
-          {
-            role: 'user',
-            content: fullText
-          }
-        ],
-        max_tokens: 500,
-        temperature: 0.3
+        contents: [{
+          parts: [{
+            text: `You are a cybersecurity expert specializing in phishing detection. Analyze this email for phishing indicators and respond ONLY with valid JSON in this exact format:
+{
+  "score": <float between 0-1, where 0=safe and 1=definitely phishing>,
+  "reasons": [<array of specific reasons why this might be phishing>],
+  "patterns": [<array of detected attack patterns like "social_engineering", "credential_theft", "impersonation", "malware_delivery", "urgency_tactics", "brand_spoofing">]
+}
+
+Email to analyze:
+${fullText}`
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.1,
+          maxOutputTokens: 500
+        }
       }),
     });
 
     if (!response.ok) {
-      console.error('OpenAI API error:', response.status, await response.text());
+      console.error('Gemini API error:', response.status, await response.text());
       return { score: 0, reasons: [], patterns: [] };
     }
 
     const data = await response.json();
-    const content = data.choices[0].message.content;
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    
+    if (!content) {
+      console.error('No content in Gemini response');
+      return { score: 0, reasons: [], patterns: [] };
+    }
     
     // Try to parse JSON response
     try {
-      const analysis = JSON.parse(content);
+      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+      const analysis = JSON.parse(cleanContent);
       return {
         score: Math.max(0, Math.min(1, analysis.score || 0)),
         reasons: Array.isArray(analysis.reasons) ? analysis.reasons : [],
         patterns: Array.isArray(analysis.patterns) ? analysis.patterns : []
       };
     } catch (parseError) {
-      console.error('Failed to parse OpenAI response:', content);
+      console.error('Failed to parse Gemini response:', content);
       // Fallback: extract score and basic analysis
-      const scoreMatch = content.match(/score[":]\s*([0-9.]+)/i);
+      const scoreMatch = content.match(/["']?score["']?\s*:\s*([0-9.]+)/i);
       const score = scoreMatch ? parseFloat(scoreMatch[1]) : 0.5;
       return {
         score: Math.max(0, Math.min(1, score)),
-        reasons: ['AI analysis detected potential phishing indicators'],
+        reasons: ['Gemini AI detected potential phishing indicators'],
         patterns: ['ai_detected']
       };
     }
   } catch (error) {
-    console.error('ML analysis error:', error);
+    console.error('Gemini analysis error:', error);
     return { score: 0, reasons: [], patterns: [] };
   }
 }
 
-// Combine rule-based and ML results
-function combineResults(ruleResult: any, mlResult: any): DetectionResult {
-  // Weighted combination: 40% rule-based, 60% ML
-  const combinedScore = (ruleResult.score * 0.4) + (mlResult.score * 0.6);
+// Perplexity analysis for real-time threat intelligence
+async function perplexityAnalysis(email_text: string, sender?: string, subject?: string): Promise<{
+  score: number;
+  reasons: string[];
+  patterns: string[];
+}> {
+  try {
+    const perplexityApiKey = Deno.env.get('PERPLEXITY_API_KEY');
+    if (!perplexityApiKey) {
+      console.log('Perplexity API key not found, skipping Perplexity analysis');
+      return { score: 0, reasons: [], patterns: [] };
+    }
+
+    const fullText = `Subject: ${subject || 'No subject'}
+Sender: ${sender || 'Unknown sender'}
+Content: ${email_text}`;
+
+    const response = await fetch('https://api.perplexity.ai/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${perplexityApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-sonar-large-128k-online',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a cybersecurity expert with access to current threat intelligence. Analyze this email for phishing indicators using the latest known attack patterns and respond with JSON:
+{
+  "score": <float 0-1, where 0=safe, 1=phishing>,
+  "reasons": [<specific reasons for classification>],
+  "patterns": [<attack patterns detected>]
+}
+
+Focus on current phishing campaigns, known malicious domains, and recent attack vectors.`
+          },
+          {
+            role: 'user',
+            content: `Analyze this email for phishing indicators using current threat intelligence:
+
+${fullText}`
+          }
+        ],
+        temperature: 0.2,
+        top_p: 0.9,
+        max_tokens: 400,
+        search_recency_filter: 'month'
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('Perplexity API error:', response.status, await response.text());
+      return { score: 0, reasons: [], patterns: [] };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content;
+    
+    if (!content) {
+      console.error('No content in Perplexity response');
+      return { score: 0, reasons: [], patterns: [] };
+    }
+    
+    // Try to parse JSON response
+    try {
+      const cleanContent = content.replace(/```json\n?|\n?```/g, '').trim();
+      const analysis = JSON.parse(cleanContent);
+      return {
+        score: Math.max(0, Math.min(1, analysis.score || 0)),
+        reasons: Array.isArray(analysis.reasons) ? analysis.reasons : [],
+        patterns: Array.isArray(analysis.patterns) ? analysis.patterns : []
+      };
+    } catch (parseError) {
+      console.error('Failed to parse Perplexity response:', content);
+      // Fallback: extract score and basic analysis
+      const scoreMatch = content.match(/["']?score["']?\s*:\s*([0-9.]+)/i);
+      const score = scoreMatch ? parseFloat(scoreMatch[1]) : 0.5;
+      return {
+        score: Math.max(0, Math.min(1, score)),
+        reasons: ['Perplexity AI detected potential phishing indicators based on current threat intelligence'],
+        patterns: ['ai_detected']
+      };
+    }
+  } catch (error) {
+    console.error('Perplexity analysis error:', error);
+    return { score: 0, reasons: [], patterns: [] };
+  }
+}
+
+// Combine rule-based, Gemini, and Perplexity results for maximum accuracy
+function combineResults(ruleResult: any, geminiResult: any, perplexityResult: any): DetectionResult {
+  // Calculate weighted combination: 30% rule-based, 40% Gemini, 30% Perplexity
+  // Give Gemini slightly more weight as it's designed for complex analysis
+  const combinedScore = (ruleResult.score * 0.3) + (geminiResult.score * 0.4) + (perplexityResult.score * 0.3);
   
-  // Determine final result
-  const isPhishing = combinedScore > 0.5;
-  const confidence = isPhishing ? combinedScore : (1 - combinedScore);
+  // Determine final result with adaptive threshold
+  // If any method gives a high score (>0.7), be more cautious
+  const highConfidenceDetection = Math.max(ruleResult.score, geminiResult.score, perplexityResult.score) > 0.7;
+  const threshold = highConfidenceDetection ? 0.4 : 0.5;
+  const isPhishing = combinedScore > threshold;
   
-  // Determine risk level
+  // Calculate confidence based on agreement between methods
+  const scores = [ruleResult.score, geminiResult.score, perplexityResult.score].filter(s => s > 0);
+  let confidence;
+  
+  if (scores.length === 0) {
+    confidence = 0.5; // No analysis available
+  } else if (scores.length === 1) {
+    confidence = isPhishing ? scores[0] : (1 - scores[0]);
+  } else {
+    // Calculate confidence based on agreement and combined score
+    const variance = scores.reduce((acc, score) => acc + Math.pow(score - combinedScore, 2), 0) / scores.length;
+    const agreement = Math.max(0, 1 - variance * 2); // Convert variance to agreement score
+    confidence = isPhishing 
+      ? Math.min(0.99, combinedScore + (agreement * 0.2))
+      : Math.min(0.99, (1 - combinedScore) + (agreement * 0.2));
+  }
+  
+  // Determine risk level based on combined score and individual high scores
   let risk_level: 'low' | 'medium' | 'high';
-  if (combinedScore < 0.3) risk_level = 'low';
-  else if (combinedScore < 0.7) risk_level = 'medium';
-  else risk_level = 'high';
+  if (combinedScore < 0.3 && !highConfidenceDetection) {
+    risk_level = 'low';
+  } else if (combinedScore < 0.6 && !highConfidenceDetection) {
+    risk_level = 'medium';
+  } else {
+    risk_level = 'high';
+  }
   
-  // Combine reasons and patterns
-  const allReasons = [...ruleResult.reasons, ...mlResult.reasons];
-  const allPatterns = [...ruleResult.patterns, ...mlResult.patterns];
+  // Combine reasons and patterns from all methods
+  const allReasons = [
+    ...ruleResult.reasons,
+    ...geminiResult.reasons,
+    ...perplexityResult.reasons
+  ].filter(reason => reason && reason.length > 0);
+  
+  const allPatterns = [
+    ...ruleResult.patterns,
+    ...geminiResult.patterns,
+    ...perplexityResult.patterns
+  ].filter(pattern => pattern && pattern.length > 0);
   
   return {
     result: isPhishing ? 'phishing' : 'safe',
     confidence: Math.round(confidence * 100) / 100,
-    reasons: allReasons,
+    reasons: allReasons.length > 0 ? allReasons : ['Analysis completed with available detection methods'],
     risk_level,
     detected_patterns: [...new Set(allPatterns)] // Remove duplicates
   };
@@ -298,24 +425,26 @@ serve(async (req) => {
       );
     }
 
-    console.log('Starting phishing detection analysis...');
+    console.log('Starting enhanced phishing detection with multiple AI engines...');
 
-    // Run rule-based and ML analysis in parallel
-    const [ruleResult, mlResult] = await Promise.all([
+    // Run rule-based, Gemini, and Perplexity analysis in parallel for maximum efficiency
+    const [ruleResult, geminiResult, perplexityResult] = await Promise.all([
       Promise.resolve(ruleBasedDetection(
         requestData.email_text,
         requestData.sender,
         requestData.subject,
         requestData.links
       )),
-      mlAnalysis(requestData.email_text, requestData.sender, requestData.subject)
+      geminiAnalysis(requestData.email_text, requestData.sender, requestData.subject),
+      perplexityAnalysis(requestData.email_text, requestData.sender, requestData.subject)
     ]);
 
     console.log('Rule-based score:', ruleResult.score);
-    console.log('ML score:', mlResult.score);
+    console.log('Gemini AI score:', geminiResult.score);
+    console.log('Perplexity AI score:', perplexityResult.score);
 
-    // Combine results
-    const finalResult = combineResults(ruleResult, mlResult);
+    // Combine results from all three methods
+    const finalResult = combineResults(ruleResult, geminiResult, perplexityResult);
 
     console.log('Final result:', finalResult.result, 'Confidence:', finalResult.confidence);
 
