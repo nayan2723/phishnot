@@ -61,6 +61,96 @@ export type Database = {
           },
         ]
       }
+      notification_preferences: {
+        Row: {
+          alert_frequency: string
+          clerk_user_id: string
+          created_at: string
+          email_alerts: boolean
+          id: string
+          phishing_threshold: number
+          updated_at: string
+        }
+        Insert: {
+          alert_frequency?: string
+          clerk_user_id: string
+          created_at?: string
+          email_alerts?: boolean
+          id?: string
+          phishing_threshold?: number
+          updated_at?: string
+        }
+        Update: {
+          alert_frequency?: string
+          clerk_user_id?: string
+          created_at?: string
+          email_alerts?: boolean
+          id?: string
+          phishing_threshold?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rate_limits: {
+        Row: {
+          clerk_user_id: string
+          created_at: string
+          endpoint: string
+          id: string
+          requests_count: number
+          updated_at: string
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          clerk_user_id: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          requests_count?: number
+          updated_at?: string
+          window_end?: string
+          window_start?: string
+        }
+        Update: {
+          clerk_user_id?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          requests_count?: number
+          updated_at?: string
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      shareable_reports: {
+        Row: {
+          analysis_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          is_active: boolean
+          share_token: string
+        }
+        Insert: {
+          analysis_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          share_token: string
+        }
+        Update: {
+          analysis_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          is_active?: boolean
+          share_token?: string
+        }
+        Relationships: []
+      }
       uploaded_files: {
         Row: {
           clerk_user_id: string
@@ -121,6 +211,69 @@ export type Database = {
           safe_browsing_status?: string | null
           updated_at?: string
           url_domain?: string
+        }
+        Relationships: []
+      }
+      user_alerts: {
+        Row: {
+          alert_type: string
+          clerk_user_id: string
+          id: string
+          message: string
+          metadata: Json | null
+          read_at: string | null
+          sent_at: string
+        }
+        Insert: {
+          alert_type: string
+          clerk_user_id: string
+          id?: string
+          message: string
+          metadata?: Json | null
+          read_at?: string | null
+          sent_at?: string
+        }
+        Update: {
+          alert_type?: string
+          clerk_user_id?: string
+          id?: string
+          message?: string
+          metadata?: Json | null
+          read_at?: string | null
+          sent_at?: string
+        }
+        Relationships: []
+      }
+      user_analytics: {
+        Row: {
+          clerk_user_id: string
+          created_at: string
+          id: string
+          last_scan_at: string | null
+          phishing_detected: number
+          safe_emails: number
+          total_scans: number
+          updated_at: string
+        }
+        Insert: {
+          clerk_user_id: string
+          created_at?: string
+          id?: string
+          last_scan_at?: string | null
+          phishing_detected?: number
+          safe_emails?: number
+          total_scans?: number
+          updated_at?: string
+        }
+        Update: {
+          clerk_user_id?: string
+          created_at?: string
+          id?: string
+          last_scan_at?: string | null
+          phishing_detected?: number
+          safe_emails?: number
+          total_scans?: number
+          updated_at?: string
         }
         Relationships: []
       }

@@ -7,6 +7,201 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+);
+
+// Rate limiting configuration
+const RATE_LIMITS = {
+  detect: { requests: 50, window: 3600000 }, // 50 requests per hour
+  free_tier: { requests: 10, window: 3600000 }, // 10 requests per hour for free users
+};
+
+// Check and enforce rate limiting
+async function checkRateLimit(clerkUserId: string, endpoint: string): Promise<{ allowed: boolean; remaining: number; resetTime: number }> {
+  if (!clerkUserId) {
+    return { allowed: false, remaining: 0, resetTime: Date.now() + RATE_LIMITS.detect.window };
+  }
+
+  const now = new Date();
+  const windowStart = new Date(now.getTime() - RATE_LIMITS.detect.window);
+  
+  try {
+    // Get or create rate limit record for current window
+    const { data: existing, error: fetchError } = await supabase
+      .from('rate_limits')
+      .select('*')
+      .eq('clerk_user_id', clerkUserId)
+      .eq('endpoint', endpoint)
+      .gte('window_end', now.toISOString())
+      .maybeSingle();
+
+    if (fetchError) {
+      console.error('Rate limit fetch error:', fetchError);
+      return { allowed: true, remaining: RATE_LIMITS.detect.requests - 1, resetTime: Date.now() + RATE_LIMITS.detect.window };
+    }
+
+    const limit = RATE_LIMITS.detect.requests;
+
+    if (existing) {
+      // Check if limit exceeded
+      if (existing.requests_count >= limit) {
+        const resetTime = new Date(existing.window_end).getTime();
+        return { allowed: false, remaining: 0, resetTime };
+      }
+
+      // Increment request count
+      const { error: updateError } = await supabase
+        .from('rate_limits')
+        .update({ 
+          requests_count: existing.requests_count + 1,
+          updated_at: now.toISOString()
+        })
+        .eq('id', existing.id);
+
+      if (updateError) {
+        console.error('Rate limit update error:', updateError);
+      }
+
+      return { 
+        allowed: true, 
+        remaining: limit - (existing.requests_count + 1), 
+        resetTime: new Date(existing.window_end).getTime()
+      };
+    } else {
+      // Create new rate limit record
+      const windowEnd = new Date(now.getTime() + RATE_LIMITS.detect.window);
+      
+      const { error: insertError } = await supabase
+        .from('rate_limits')
+        .insert({
+          clerk_user_id: clerkUserId,
+          endpoint: endpoint,
+          requests_count: 1,
+          window_start: now.toISOString(),
+          window_end: windowEnd.toISOString()
+        });
+
+      if (insertError) {
+        console.error('Rate limit insert error:', insertError);
+      }
+
+      return { 
+        allowed: true, 
+        remaining: limit - 1, 
+        resetTime: windowEnd.getTime()
+      };
+    }
+  } catch (error) {
+    console.error('Rate limiting error:', error);
+    // Allow request on error to avoid blocking users
+    return { allowed: true, remaining: RATE_LIMITS.detect.requests - 1, resetTime: Date.now() + RATE_LIMITS.detect.window };
+  }
+}
+
+// Update user analytics
+async function updateUserAnalytics(clerkUserId: string, isPhishing: boolean): Promise<void> {
+  if (!clerkUserId) return;
+
+  try {
+    const { data: existing, error: fetchError } = await supabase
+      .from('user_analytics')
+      .select('*')
+      .eq('clerk_user_id', clerkUserId)
+      .maybeSingle();
+
+    const now = new Date().toISOString();
+
+    if (existing) {
+      // Update existing analytics
+      const { error: updateError } = await supabase
+        .from('user_analytics')
+        .update({
+          total_scans: existing.total_scans + 1,
+          phishing_detected: existing.phishing_detected + (isPhishing ? 1 : 0),
+          safe_emails: existing.safe_emails + (isPhishing ? 0 : 1),
+          last_scan_at: now,
+          updated_at: now
+        })
+        .eq('id', existing.id);
+
+      if (updateError) {
+        console.error('Analytics update error:', updateError);
+      }
+    } else {
+      // Create new analytics record
+      const { error: insertError } = await supabase
+        .from('user_analytics')
+        .insert({
+          clerk_user_id: clerkUserId,
+          total_scans: 1,
+          phishing_detected: isPhishing ? 1 : 0,
+          safe_emails: isPhishing ? 0 : 1,
+          last_scan_at: now
+        });
+
+      if (insertError) {
+        console.error('Analytics insert error:', insertError);
+      }
+    }
+  } catch (error) {
+    console.error('Analytics update error:', error);
+  }
+}
+
+// Check for alert conditions
+async function checkAlertConditions(clerkUserId: string, isPhishing: boolean): Promise<void> {
+  if (!clerkUserId || !isPhishing) return;
+
+  try {
+    // Get user's notification preferences
+    const { data: preferences } = await supabase
+      .from('notification_preferences')
+      .select('*')
+      .eq('clerk_user_id', clerkUserId)
+      .maybeSingle();
+
+    if (!preferences || !preferences.email_alerts) return;
+
+    // Get recent phishing detections
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    
+    const { data: recentPhishing, error } = await supabase
+      .from('email_analyses')
+      .select('id')
+      .eq('clerk_user_id', clerkUserId)
+      .eq('is_phishing', true)
+      .gte('analyzed_at', oneDayAgo);
+
+    if (error) {
+      console.error('Error fetching recent phishing:', error);
+      return;
+    }
+
+    const phishingCount = recentPhishing?.length || 0;
+
+    // Check if threshold exceeded
+    if (phishingCount >= preferences.phishing_threshold) {
+      // Create alert
+      const { error: alertError } = await supabase
+        .from('user_alerts')
+        .insert({
+          clerk_user_id: clerkUserId,
+          alert_type: 'phishing_threshold_exceeded',
+          message: `You've scanned ${phishingCount} phishing emails in the last 24 hours. Please be extra cautious with your email security.`,
+          metadata: { phishing_count: phishingCount, threshold: preferences.phishing_threshold }
+        });
+
+      if (alertError) {
+        console.error('Error creating alert:', alertError);
+      }
+    }
+  } catch (error) {
+    console.error('Alert check error:', error);
+  }
+}
+
 interface DetectionRequest {
   email_text: string;
   sender?: string;
@@ -890,30 +1085,33 @@ async function saveAnalysis(
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const supabase = createClient(
-      'https://jpxnekifttziwkiiptlv.supabase.co',
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5la2lmdHR6aXdraWlwdGx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NDk0NDgsImV4cCI6MjA3MTQyNTQ0OH0.WDLMYC66wqJC_FSXuLzoIXb2WiPzM9Vo0hmYBaULDIY'
-    );
-
-    if (req.method !== 'POST') {
-      return new Response('Method not allowed', { status: 405, headers: corsHeaders });
-    }
-
     const requestData: DetectionRequest = await req.json();
-    
-    if (!requestData.email_text) {
-      return new Response(
-        JSON.stringify({ error: 'email_text is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     console.log('Starting enhanced phishing detection with multiple AI engines and history learning...');
+
+    // Rate limiting check
+    const rateLimit = await checkRateLimit(requestData.clerk_user_id || '', 'detect');
+    
+    if (!rateLimit.allowed) {
+      return new Response(JSON.stringify({ 
+        error: 'Rate limit exceeded. Please try again later.',
+        resetTime: rateLimit.resetTime,
+        remaining: 0
+      }), {
+        status: 429,
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json',
+          'X-RateLimit-Remaining': '0',
+          'X-RateLimit-Reset': rateLimit.resetTime.toString()
+        },
+      });
+    }
 
     // Run all detection methods in parallel for maximum efficiency
     const [ruleResult, geminiResult, perplexityResult, safeBrowsingResult] = await Promise.all([
@@ -948,26 +1146,43 @@ serve(async (req) => {
 
     console.log('Final result:', finalResult.result, 'Confidence:', finalResult.confidence);
 
-    // Save to database if user is authenticated
-    if (requestData.clerk_user_id) {
-      await saveAnalysis(supabase, requestData.clerk_user_id, requestData, finalResult);
+    // Update analytics and check alerts
+    await updateUserAnalytics(requestData.clerk_user_id || '', finalResult.result === 'phishing');
+    await checkAlertConditions(requestData.clerk_user_id || '', finalResult.result === 'phishing');
+
+    // Store result in database
+    const { data: analysisResult, error: dbError } = await supabase
+      .from('email_analyses')
+      .insert({
+        clerk_user_id: requestData.clerk_user_id || '',
+        subject: requestData.subject || '',
+        sender_email: requestData.sender || '',
+        email_body: requestData.email_text,
+        is_phishing: finalResult.result === 'phishing',
+        confidence_score: Math.round(finalResult.confidence * 100),
+        analysis_reasons: finalResult.reasons
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('Database error:', dbError);
     }
 
     return new Response(JSON.stringify(finalResult), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'application/json',
+        'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+        'X-RateLimit-Reset': rateLimit.resetTime.toString()
+      },
     });
 
   } catch (error) {
-    console.error('Detection error:', error);
-    return new Response(
-      JSON.stringify({ 
-        error: 'Internal server error',
-        details: error.message 
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    );
+    console.error('Error in detect function:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });

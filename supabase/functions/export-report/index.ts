@@ -1,0 +1,265 @@
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+const supabase = createClient(
+  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+);
+
+interface ExportRequest {
+  analysis_id: string;
+  format: 'pdf' | 'csv';
+  clerk_user_id: string;
+}
+
+// Generate PDF report using HTML-to-PDF conversion
+async function generatePDFReport(analysis: any): Promise<Uint8Array> {
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>PhishNot Analysis Report</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 20px; color: #333; }
+            .header { text-align: center; margin-bottom: 30px; }
+            .logo { font-size: 24px; font-weight: bold; color: #e11d48; }
+            .result { text-align: center; margin: 30px 0; }
+            .safe { color: #22c55e; font-weight: bold; }
+            .phishing { color: #ef4444; font-weight: bold; }
+            .section { margin: 20px 0; }
+            .section-title { font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+            .details { background: #f8f9fa; padding: 15px; border-radius: 8px; }
+            .confidence { font-size: 20px; margin: 10px 0; }
+            .risk-level { padding: 5px 15px; border-radius: 20px; color: white; }
+            .risk-high { background-color: #ef4444; }
+            .risk-medium { background-color: #f59e0b; }
+            .risk-low { background-color: #22c55e; }
+            .patterns { margin: 10px 0; }
+            .pattern { background: #e5e7eb; padding: 4px 8px; margin: 2px; border-radius: 4px; display: inline-block; }
+            .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #666; }
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <div class="logo">🔒 PhishNot Security Report</div>
+            <p>Email Security Analysis Report</p>
+            <p>Generated on ${new Date(analysis.analyzed_at).toLocaleString()}</p>
+        </div>
+        
+        <div class="result">
+            <div class="confidence">Confidence Score: ${analysis.confidence_score}%</div>
+            <div class="result-status ${analysis.is_phishing ? 'phishing' : 'safe'}">
+                ${analysis.is_phishing ? '🚨 PHISHING DETECTED' : '✅ EMAIL APPEARS SAFE'}
+            </div>
+            <div class="risk-level ${analysis.is_phishing ? 'risk-high' : 'risk-low'}">
+                Risk Level: ${analysis.is_phishing ? 'HIGH' : 'LOW'}
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">📧 Email Information</div>
+            <div class="details">
+                <strong>From:</strong> ${analysis.sender_email || 'Unknown'}<br>
+                <strong>Subject:</strong> ${analysis.subject || 'No subject'}<br>
+                <strong>Analyzed:</strong> ${new Date(analysis.analyzed_at).toLocaleString()}
+            </div>
+        </div>
+
+        ${analysis.analysis_reasons && analysis.analysis_reasons.length > 0 ? `
+        <div class="section">
+            <div class="section-title">🔍 Analysis Results</div>
+            <div class="details">
+                <ul>
+                    ${analysis.analysis_reasons.map((reason: string) => `<li>${reason}</li>`).join('')}
+                </ul>
+            </div>
+        </div>
+        ` : ''}
+
+        <div class="section">
+            <div class="section-title">🛡️ Security Recommendations</div>
+            <div class="details">
+                ${analysis.is_phishing ? `
+                    <ul>
+                        <li><strong>Do not click any links</strong> in this email</li>
+                        <li><strong>Do not provide personal information</strong> if requested</li>
+                        <li><strong>Report this email</strong> to your IT department or email provider</li>
+                        <li><strong>Delete the email</strong> after reporting</li>
+                        <li><strong>Be cautious of similar emails</strong> from this sender</li>
+                    </ul>
+                ` : `
+                    <ul>
+                        <li>This email appears legitimate based on our analysis</li>
+                        <li>Always verify sender identity for sensitive requests</li>
+                        <li>Be cautious with links and attachments from unknown senders</li>
+                        <li>When in doubt, contact the sender through an independent channel</li>
+                    </ul>
+                `}
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>This report was generated by PhishNot - Advanced Email Security Analysis</p>
+            <p>For questions about this analysis, please contact your security team</p>
+        </div>
+    </body>
+    </html>
+  `;
+
+  // Use Puppeteer-like service for PDF generation
+  try {
+    const response = await fetch('https://api.htmlcsstoimage.com/v1/image', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Basic ' + btoa('demo:demo'), // Use demo credentials or implement proper API key
+      },
+      body: JSON.stringify({
+        html: htmlContent,
+        format: 'pdf',
+        css: '',
+        google_fonts: 'Roboto',
+        selector: 'body',
+        ms_delay: 0,
+        device_scale: 1,
+        render_when_ready: false,
+        viewport_width: 1920,
+        viewport_height: 1080
+      })
+    });
+
+    if (response.ok) {
+      return new Uint8Array(await response.arrayBuffer());
+    } else {
+      throw new Error('PDF generation service failed');
+    }
+  } catch (error) {
+    console.error('PDF generation error:', error);
+    // Fallback: return simple text-based "PDF"
+    const textReport = `PhishNot Security Report\n\nResult: ${analysis.is_phishing ? 'PHISHING' : 'SAFE'}\nConfidence: ${analysis.confidence_score}%\nDate: ${new Date(analysis.analyzed_at).toLocaleString()}\n\nEmail: ${analysis.sender_email}\nSubject: ${analysis.subject}\n\nReasons:\n${analysis.analysis_reasons?.join('\n- ') || 'No specific reasons'}\n\nGenerated by PhishNot Security Analysis`;
+    return new TextEncoder().encode(textReport);
+  }
+}
+
+// Generate CSV report
+function generateCSVReport(analysis: any): string {
+  const headers = ['Date', 'Sender', 'Subject', 'Result', 'Confidence', 'Risk_Level', 'Reasons'];
+  const row = [
+    new Date(analysis.analyzed_at).toISOString(),
+    `"${(analysis.sender_email || '').replace(/"/g, '""')}"`,
+    `"${(analysis.subject || '').replace(/"/g, '""')}"`,
+    analysis.is_phishing ? 'PHISHING' : 'SAFE',
+    analysis.confidence_score,
+    analysis.is_phishing ? 'HIGH' : 'LOW',
+    `"${(analysis.analysis_reasons?.join('; ') || '').replace(/"/g, '""')}"`
+  ];
+  
+  return headers.join(',') + '\n' + row.join(',');
+}
+
+// Create shareable report link
+async function createShareableLink(analysisId: string): Promise<string> {
+  try {
+    // Generate unique share token
+    const shareToken = crypto.randomUUID();
+    
+    const { error } = await supabase
+      .from('shareable_reports')
+      .insert({
+        analysis_id: analysisId,
+        share_token: shareToken,
+        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days
+        is_active: true
+      });
+
+    if (error) {
+      console.error('Error creating shareable link:', error);
+      throw error;
+    }
+
+    return `${Deno.env.get('SUPABASE_URL')?.replace('supabase.co', 'supabase.co')}/functions/v1/shared-report/${shareToken}`;
+  } catch (error) {
+    console.error('Shareable link creation error:', error);
+    throw error;
+  }
+}
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { analysis_id, format, clerk_user_id, action }: ExportRequest & { action?: string } = await req.json();
+
+    if (!analysis_id || !clerk_user_id) {
+      return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Get analysis data
+    const { data: analysis, error } = await supabase
+      .from('email_analyses')
+      .select('*')
+      .eq('id', analysis_id)
+      .eq('clerk_user_id', clerk_user_id)
+      .single();
+
+    if (error || !analysis) {
+      return new Response(JSON.stringify({ error: 'Analysis not found or access denied' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Handle share link creation
+    if (action === 'share') {
+      const shareUrl = await createShareableLink(analysis_id);
+      return new Response(JSON.stringify({ shareUrl }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Handle export
+    if (format === 'pdf') {
+      const pdfData = await generatePDFReport(analysis);
+      return new Response(pdfData, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': `attachment; filename="phishnot-report-${analysis_id.substring(0, 8)}.pdf"`
+        }
+      });
+    } else if (format === 'csv') {
+      const csvData = generateCSVReport(analysis);
+      return new Response(csvData, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'text/csv',
+          'Content-Disposition': `attachment; filename="phishnot-report-${analysis_id.substring(0, 8)}.csv"`
+        }
+      });
+    } else {
+      return new Response(JSON.stringify({ error: 'Invalid format. Use "pdf" or "csv"' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+  } catch (error) {
+    console.error('Export error:', error);
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+});

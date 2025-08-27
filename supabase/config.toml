@@ -33,6 +33,15 @@ verify_jwt = false
 [functions.history]
 verify_jwt = false
 
+[functions.export-report]
+verify_jwt = false
+
+[functions.shared-report]
+verify_jwt = false
+
+[functions.analytics]
+verify_jwt = false
+
 [realtime]
 enabled = true
 port = 54325
