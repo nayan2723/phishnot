@@ -254,7 +254,7 @@ const PhishNotApp = () => {
           <section id="hero" className="relative py-20 sm:py-32 px-4 overflow-hidden">
             {/* Background Paths */}
             <div className="absolute inset-0 z-0">
-              <BackgroundPaths title="PhishNot Security" />
+              <BackgroundPaths />
             </div>
             
             {/* Content */}
