@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
-import { CyberScene } from "@/components/3d/CyberScene";
+import { BackgroundPaths } from "@/components/ui/background-paths";
 import { ResponsiveScanner } from "@/components/ResponsiveScanner";
 import { SecurityFeatures } from "@/components/SecurityFeatures";
 import { AnalysisHistory } from "@/components/AnalysisHistory";
@@ -250,13 +250,11 @@ const PhishNotApp = () => {
       {/* Content based on current view */}
       {currentView === 'main' && (
         <>
-          {/* Enhanced Hero Section with 3D Background */}
+          {/* Enhanced Hero Section with Background Paths */}
           <section id="hero" className="relative py-20 sm:py-32 px-4 overflow-hidden">
-            {/* 3D Background */}
+            {/* Background Paths */}
             <div className="absolute inset-0 z-0">
-              <Suspense fallback={<div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-secondary/10" />}>
-                <CyberScene />
-              </Suspense>
+              <BackgroundPaths title="PhishNot Security" />
             </div>
             
             {/* Content */}
