@@ -11,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Logo } from "@/components/Logo";
 import { BackgroundPaths } from "@/components/ui/background-paths";
+import PortfolioScrollAnimation from "@/components/ui/portfolio-scroll";
 import { ResponsiveScanner } from "@/components/ResponsiveScanner";
 import { SecurityFeatures } from "@/components/SecurityFeatures";
 import { AnalysisHistory } from "@/components/AnalysisHistory";
@@ -371,6 +372,9 @@ const PhishNotApp = () => {
               </div>
             </div>
           </section>
+
+          {/* Portfolio Scroll Animation */}
+          <PortfolioScrollAnimation />
 
           {/* Enhanced Scanner Section */}
           <ResponsiveScanner />
