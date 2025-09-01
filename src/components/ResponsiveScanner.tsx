@@ -16,6 +16,7 @@ import {
   readFileContent
 } from "@/utils/database";
 import { supabase } from "@/integrations/supabase/client";
+import { FeedbackSystem } from "@/components/FeedbackSystem";
 
 interface ScanResult {
   isPhishing: boolean;
@@ -645,6 +646,18 @@ export const ResponsiveScanner = () => {
                   </div>
                 </CardContent>
               </Card>
+              
+              {/* Enhanced Feedback System Integration */}
+              {scanResult && (
+                <FeedbackSystem
+                  scanResult={scanResult}
+                  emailData={{
+                    sender: senderEmail,
+                    subject: subject,
+                    content: emailBody || file?.name || ""
+                  }}
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>

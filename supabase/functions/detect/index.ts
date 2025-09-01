@@ -223,7 +223,7 @@ interface DetectionResult {
   };
 }
 
-// Rule-based detection engine with enhanced pattern recognition
+// Enhanced rule-based detection with improved accuracy and false positive reduction
 function ruleBasedDetection(email_text: string, sender?: string, subject?: string, links?: string[]): {
   score: number;
   reasons: string[];
@@ -233,37 +233,85 @@ function ruleBasedDetection(email_text: string, sender?: string, subject?: strin
   const reasons: string[] = [];
   const patterns: string[] = [];
 
-  console.log('Starting rule-based detection...');
+  console.log('Starting enhanced rule-based detection...');
 
-  // CRITICAL PATTERN: Generic greeting with full names (major phishing indicator)
-  const genericGreetingPattern = /Dear\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]*)*(?:\s+[A-Z][a-z]+)*)/i;
-  if (genericGreetingPattern.test(email_text)) {
-    score += 0.8; // Very high score for this specific pattern
-    reasons.push('Generic greeting with full name detected - common phishing tactic');
-    patterns.push('social_engineering');
-    console.log('Generic greeting pattern detected');
+  // WHITELIST: Known legitimate domains and senders
+  const legitimateDomains = [
+    'gov.in', 'nic.in', 'aicte-india.org', 'ugc.ac.in', 'mhrd.gov.in',
+    'gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com',
+    'amazon.com', 'paypal.com', 'apple.com', 'microsoft.com', 'google.com',
+    'facebook.com', 'linkedin.com', 'twitter.com', 'instagram.com',
+    'github.com', 'stackoverflow.com', 'medium.com',
+    'banks.org', 'rbi.org.in', 'npci.org.in'
+  ];
+
+  const isFromLegitimateSource = sender && legitimateDomains.some(domain => 
+    sender.toLowerCase().endsWith('@' + domain) || sender.toLowerCase().endsWith('.' + domain)
+  );
+
+  // Reduce base suspicion for emails from legitimate sources
+  if (isFromLegitimateSource) {
+    console.log('Email from whitelisted domain:', sender);
+    score -= 0.2; // Give legitimate sources benefit of doubt
   }
 
-  // CRITICAL PATTERN: Reply-to mismatch detection
+  // ENHANCED: Generic greeting detection with context awareness
+  const genericGreetingPattern = /Dear\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]*)*(?:\s+[A-Z][a-z]+)*)/i;
+  const greetingMatch = email_text.match(genericGreetingPattern);
+  
+  if (greetingMatch && !isFromLegitimateSource) {
+    // Only flag generic greetings from non-legitimate sources
+    const extractedName = greetingMatch[1];
+    
+    // Check if it's a very generic/fake name pattern
+    const suspiciousNamePatterns = [
+      /^[A-Z][a-z]+ [A-Z][a-z]+$/, // Perfect FirstName LastName format
+      /User|Customer|Client|Member|Sir|Madam/i,
+      /John Doe|Jane Doe|Test User|Sample Name/i
+    ];
+    
+    const isSuspiciousName = suspiciousNamePatterns.some(pattern => pattern.test(extractedName));
+    
+    if (isSuspiciousName) {
+      score += 0.4; // Reduced from 0.8 to prevent false positives
+      reasons.push('Suspicious generic greeting pattern detected');
+      patterns.push('social_engineering');
+      console.log('Suspicious generic greeting pattern detected');
+    } else if (sender && !sender.toLowerCase().includes(extractedName.toLowerCase().split(' ')[0])) {
+      // Name in greeting doesn't match sender name
+      score += 0.3;
+      reasons.push('Greeting name inconsistent with sender');
+      patterns.push('social_engineering');
+    }
+  }
+
+  // ENHANCED: Reply-to mismatch with legitimate domain validation
   const replyToPattern = /reply.?to[:\s]+([^\s\n]+@[^\s\n]+)/i;
   const replyToMatch = email_text.match(replyToPattern);
   if (replyToMatch && sender) {
     const replyTo = replyToMatch[1].toLowerCase();
-    const senderDomain = sender.split('@')[1]?.toLowerCase();
-    const replyToDomain = replyTo.split('@')[1]?.toLowerCase();
+    const senderEmail = sender.toLowerCase();
+    const senderDomain = senderEmail.split('@')[1];
+    const replyToDomain = replyTo.split('@')[1];
     
     if (senderDomain && replyToDomain && senderDomain !== replyToDomain) {
-      // Check for suspicious reply-to addresses
-      if (replyTo.includes('example.com') || replyTo.includes('noreply') || replyToDomain === 'example.com') {
-        score += 0.9; // Extremely high score for obvious mismatch
-        reasons.push(`Suspicious reply-to address mismatch: sender domain "${senderDomain}" vs reply-to domain "${replyToDomain}"`);
+      // Critical: Check for obvious phishing indicators
+      if (replyTo.includes('example.com') || replyToDomain === 'example.com' || replyTo.includes('test.com')) {
+        score += 0.9; // Maximum score for obvious fake domains
+        reasons.push(`Fake reply-to domain detected: ${replyToDomain}`);
         patterns.push('impersonation');
-        patterns.push('brand_spoofing');
-        console.log('Reply-to mismatch detected:', senderDomain, 'vs', replyToDomain);
-      } else if (senderDomain !== replyToDomain) {
-        score += 0.6; // High score for any domain mismatch
-        reasons.push(`Reply-to domain mismatch: ${senderDomain} vs ${replyToDomain}`);
         patterns.push('domain_spoofing');
+        console.log('Fake reply-to domain detected:', replyToDomain);
+      } else if (!legitimateDomains.includes(senderDomain) && !legitimateDomains.includes(replyToDomain)) {
+        // Both domains are unknown - moderate suspicion
+        score += 0.4; // Reduced from 0.6
+        reasons.push(`Reply-to domain mismatch between unknown domains: ${senderDomain} vs ${replyToDomain}`);
+        patterns.push('domain_spoofing');
+      } else if (legitimateDomains.includes(senderDomain) && !legitimateDomains.includes(replyToDomain)) {
+        // Legitimate sender with suspicious reply-to
+        score += 0.7;
+        reasons.push(`Legitimate sender with suspicious reply-to: ${senderDomain} vs ${replyToDomain}`);
+        patterns.push('impersonation');
       }
     }
   }
@@ -287,24 +335,104 @@ function ruleBasedDetection(email_text: string, sender?: string, subject?: strin
     }
   }
 
-  // ENHANCED: Brand impersonation detection
+  // ENHANCED: Brand impersonation with legitimate verification
   const brandPatterns = [
-    { name: 'AICTE', pattern: /aicte/i, legitimate: ['@aicte-india.org', '@nic.in'] },
-    { name: 'Government', pattern: /government|ministry|dept/i, legitimate: ['@gov.in', '@nic.in'] },
-    { name: 'Banking', pattern: /bank|account|payment/i, legitimate: [] },
-    { name: 'Tech Companies', pattern: /google|microsoft|apple|facebook|amazon/i, legitimate: [] }
+    { 
+      name: 'AICTE', 
+      pattern: /aicte|all india council|technical education/i, 
+      legitimate: ['aicte-india.org', 'nic.in'],
+      keywords: ['admission', 'approval', 'accreditation', 'council']
+    },
+    { 
+      name: 'Government', 
+      pattern: /government|ministry|dept|gov\.in/i, 
+      legitimate: ['gov.in', 'nic.in'],
+      keywords: ['official', 'notification', 'circular', 'order']
+    },
+    { 
+      name: 'Banking', 
+      pattern: /bank|rbi|reserve bank|payment|transaction/i, 
+      legitimate: ['rbi.org.in', 'npci.org.in'],
+      keywords: ['account', 'balance', 'transaction', 'payment']
+    },
+    { 
+      name: 'Major Tech', 
+      pattern: /google|microsoft|apple|facebook|amazon|paypal/i, 
+      legitimate: ['google.com', 'microsoft.com', 'apple.com', 'facebook.com', 'amazon.com', 'paypal.com'],
+      keywords: ['account', 'security', 'verify', 'update']
+    }
   ];
 
   for (const brand of brandPatterns) {
-    if (brand.pattern.test(email_text) || brand.pattern.test(subject || '')) {
-      if (sender && !brand.legitimate.some(domain => sender.toLowerCase().endsWith(domain))) {
-        score += 0.6;
-        reasons.push(`Potential ${brand.name} brand impersonation detected`);
-        patterns.push('brand_spoofing');
-        patterns.push('impersonation');
-        console.log(`Brand impersonation detected: ${brand.name}`);
+    const brandInContent = brand.pattern.test(email_text);
+    const brandInSubject = brand.pattern.test(subject || '');
+    const hasKeywords = brand.keywords.some(keyword => 
+      email_text.toLowerCase().includes(keyword) || (subject || '').toLowerCase().includes(keyword)
+    );
+    
+    if ((brandInContent || brandInSubject) && hasKeywords) {
+      if (sender) {
+        const senderDomain = sender.split('@')[1]?.toLowerCase();
+        const isLegitimate = brand.legitimate.some(domain => 
+          senderDomain === domain || senderDomain?.endsWith('.' + domain)
+        );
+        
+        if (!isLegitimate && !isFromLegitimateSource) {
+          // Check for look-alike domains
+          const isLookAlike = brand.legitimate.some(legitDomain => {
+            const similarity = calculateDomainSimilarity(senderDomain || '', legitDomain);
+            return similarity > 0.7 && similarity < 1.0; // Similar but not exact
+          });
+          
+          if (isLookAlike) {
+            score += 0.8; // High score for look-alike domains
+            reasons.push(`Potential ${brand.name} domain spoofing: ${senderDomain} resembles legitimate domain`);
+            patterns.push('domain_spoofing');
+            patterns.push('brand_spoofing');
+          } else {
+            score += 0.5; // Moderate score for general brand impersonation
+            reasons.push(`Potential ${brand.name} brand impersonation from unverified sender`);
+            patterns.push('brand_spoofing');
+          }
+          console.log(`Brand impersonation detected: ${brand.name} from ${senderDomain}`);
+        }
       }
     }
+  }
+
+  // Helper function to calculate domain similarity
+  function calculateDomainSimilarity(domain1: string, domain2: string): number {
+    const longer = domain1.length > domain2.length ? domain1 : domain2;
+    const shorter = domain1.length > domain2.length ? domain2 : domain1;
+    
+    if (longer.length === 0) return 1.0;
+    
+    const editDistance = levenshteinDistance(longer, shorter);
+    return (longer.length - editDistance) / longer.length;
+  }
+  
+  function levenshteinDistance(str1: string, str2: string): number {
+    const matrix = [];
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i];
+    }
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j;
+    }
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    return matrix[str2.length][str1.length];
   }
 
   // ENHANCED: Suspicious domain patterns
@@ -348,45 +476,65 @@ function ruleBasedDetection(email_text: string, sender?: string, subject?: strin
     }
   }
 
-  // Urgency and pressure tactics
+  // ENHANCED: Urgency tactics with context awareness
   const urgencyPatterns = [
-    /urgent[ly]?/i,
-    /immediate[ly]?/i,
-    /act now/i,
-    /limited time/i,
-    /expire[sd]? (today|soon|within)/i,
-    /verify (now|immediately|within)/i,
-    /suspend[ed]? account/i,
-    /unusual activity/i,
-    /security alert/i,
-    /confirm (identity|account)/i
+    { pattern: /urgent[ly]?\s*(action|response|attention)/i, weight: 0.3, description: 'urgent action required' },
+    { pattern: /immediate[ly]?\s*(verify|update|confirm)/i, weight: 0.3, description: 'immediate verification request' },
+    { pattern: /act now|click here now|respond now/i, weight: 0.4, description: 'pressure to act immediately' },
+    { pattern: /limited time|expires? (today|tonight|soon)/i, weight: 0.2, description: 'artificial time pressure' },
+    { pattern: /suspend[ed]?\s*(account|service)/i, weight: 0.4, description: 'account suspension threat' },
+    { pattern: /unusual activity|suspicious (login|access)/i, weight: 0.3, description: 'security scare tactic' },
+    { pattern: /verify (now|immediately|within \d+)/i, weight: 0.3, description: 'urgent verification demand' },
+    { pattern: /final (notice|warning|reminder)/i, weight: 0.2, description: 'final notice pressure' }
   ];
 
   const fullText = `${email_text} ${subject || ''} ${sender || ''}`;
-  for (const pattern of urgencyPatterns) {
-    if (pattern.test(fullText)) {
-      score += 0.2;
-      reasons.push(`Urgency language detected: "${pattern.source}"`);
-      patterns.push('urgency_language');
-      break;
+  let urgencyScore = 0;
+  const detectedUrgencyTactics: string[] = [];
+
+  for (const urgencyItem of urgencyPatterns) {
+    if (urgencyItem.pattern.test(fullText)) {
+      // Reduce weight for legitimate senders
+      const adjustedWeight = isFromLegitimateSource ? urgencyItem.weight * 0.5 : urgencyItem.weight;
+      urgencyScore += adjustedWeight;
+      detectedUrgencyTactics.push(urgencyItem.description);
     }
   }
 
-  // Check for credential requests
+  if (urgencyScore > 0) {
+    score += Math.min(urgencyScore, 0.4); // Cap urgency contribution
+    reasons.push(`Pressure tactics detected: ${detectedUrgencyTactics.join(', ')}`);
+    patterns.push('urgency_language');
+    console.log('Urgency tactics detected:', detectedUrgencyTactics);
+  }
+
+  // ENHANCED: Credential harvesting detection with severity levels
   const credentialPatterns = [
-    /enter.{0,20}(password|username|ssn|social security)/i,
-    /update.{0,20}(payment|billing|card)/i,
-    /verify.{0,20}(identity|account|information)/i,
-    /confirm.{0,20}(details|information)/i
+    { pattern: /enter.{0,30}(password|pin|otp|ssn|social security)/i, weight: 0.6, description: 'sensitive credential request' },
+    { pattern: /update.{0,30}(payment|billing|card|bank)/i, weight: 0.5, description: 'financial information request' },
+    { pattern: /verify.{0,30}(identity|account|personal)/i, weight: 0.4, description: 'identity verification request' },
+    { pattern: /confirm.{0,30}(details|information|data)/i, weight: 0.3, description: 'information confirmation request' },
+    { pattern: /(click|visit).{0,20}(link|url).{0,20}(verify|update|confirm)/i, weight: 0.4, description: 'suspicious link for verification' },
+    { pattern: /provide.{0,20}(personal|confidential|sensitive)/i, weight: 0.5, description: 'personal information solicitation' }
   ];
 
-  for (const pattern of credentialPatterns) {
-    if (pattern.test(fullText)) {
-      score += 0.3;
-      reasons.push('Credential harvesting attempt detected');
-      patterns.push('credential_harvesting');
-      break;
+  let credentialScore = 0;
+  const detectedCredentialRequests: string[] = [];
+
+  for (const credItem of credentialPatterns) {
+    if (credItem.pattern.test(fullText)) {
+      // Legitimate senders might ask for verification, but with lower suspicion
+      const adjustedWeight = isFromLegitimateSource ? credItem.weight * 0.6 : credItem.weight;
+      credentialScore += adjustedWeight;
+      detectedCredentialRequests.push(credItem.description);
     }
+  }
+
+  if (credentialScore > 0) {
+    score += Math.min(credentialScore, 0.5); // Cap credential harvesting contribution
+    reasons.push(`Credential requests detected: ${detectedCredentialRequests.join(', ')}`);
+    patterns.push('credential_harvesting');
+    console.log('Credential harvesting attempts detected:', detectedCredentialRequests);
   }
 
   // Check sender spoofing indicators
@@ -433,7 +581,7 @@ function ruleBasedDetection(email_text: string, sender?: string, subject?: strin
   return { score: finalScore, reasons, patterns };
 }
 
-// Enhanced AI analysis using Google Gemini for content analysis
+// Enhanced AI analysis using Google Gemini with balanced evaluation
 async function geminiAnalysis(email_text: string, sender?: string, subject?: string): Promise<{
   score: number;
   reasons: string[];
@@ -452,7 +600,7 @@ async function geminiAnalysis(email_text: string, sender?: string, subject?: str
 Sender: ${(sender || 'Unknown sender').trim()}
 Content: ${normalizedText}`;
 
-    console.log('Starting Gemini analysis...');
+    console.log('Starting balanced Gemini analysis...');
 
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
@@ -462,33 +610,51 @@ Content: ${normalizedText}`;
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: `You are an expert cybersecurity analyst specializing in phishing email detection. Analyze this email and provide a detailed assessment.
+            text: `You are an expert cybersecurity analyst with a focus on ACCURATE phishing detection while minimizing false positives. Analyze this email objectively.
 
-CRITICAL ANALYSIS CRITERIA:
-- Generic greetings (like "Dear [Full Name]") are HIGHLY suspicious (score 0.8+)
-- Mismatched sender domains vs. reply-to addresses are MAJOR red flags (score 0.9+)
-- Tracking pixels with suspicious URLs indicate phishing (score 0.7+)
-- Brand impersonation combined with suspicious elements = high threat (score 0.8+)
-- Multiple inconsistencies indicate coordinated attack (score 0.9+)
+BALANCED ANALYSIS APPROACH:
+1. First, check if the sender is from a known legitimate domain (.gov.in, major banks, tech companies, etc.)
+2. Look for GENUINE red flags, not common business language
+3. Consider context - legitimate organizations may use formal language
+4. Focus on CLEAR indicators of deception, not just urgent language
+
+SCORING GUIDELINES:
+- 0.0-0.2: Clearly legitimate (government, known companies with consistent branding)
+- 0.3-0.5: Some concerns but likely legitimate
+- 0.6-0.7: Suspicious elements requiring caution
+- 0.8-1.0: Clear phishing indicators (fake domains, obvious deception)
+
+MAJOR RED FLAGS (0.8+ score):
+- Sender domain doesn't match claimed organization
+- Reply-to address completely different from sender
+- Tracking pixels from suspicious domains
+- Obvious typosquatting or domain spoofing
+- Requests for sensitive credentials with no legitimate context
+
+COMMON BUSINESS PRACTICES (DO NOT score high):
+- Formal greetings from legitimate organizations
+- Account notifications from verified senders
+- Legitimate marketing emails
+- Standard business communications
 
 Respond ONLY with this exact JSON format:
 {
-  "score": <float 0.0-1.0 where 0=definitely safe, 1=definitely phishing>,
-  "reasons": ["specific reason 1", "specific reason 2", "specific reason 3"],
-  "patterns": ["social_engineering", "impersonation", "brand_spoofing", "tracking", "credential_harvesting", "domain_spoofing", "urgency_tactics"]
+  "score": <float 0.0-1.0 based on genuine threat level>,
+  "reasons": ["specific evidence-based reason 1", "specific evidence-based reason 2"],
+  "patterns": ["only confirmed patterns like social_engineering, impersonation, brand_spoofing, tracking, credential_harvesting, domain_spoofing"]
 }
 
 Email to analyze:
 ${fullText}
 
-Focus on: sender legitimacy, content consistency, tracking elements, and social engineering tactics.`
+Be precise and evidence-based in your assessment.`
           }]
         }],
         generationConfig: {
-          temperature: 0.0,  // Completely deterministic
+          temperature: 0.1,  // Slightly more deterministic
           maxOutputTokens: 600,
-          topP: 1.0,
-          topK: 1
+          topP: 0.9,
+          topK: 3
         }
       }),
     });
@@ -924,7 +1090,7 @@ function createExplanation(
   };
 }
 
-// Enhanced result combination function with all detection methods and history learning
+// Enhanced result combination with improved accuracy and reduced false positives
 function combineResults(
   ruleResult: any, 
   geminiResult: any, 
@@ -932,23 +1098,60 @@ function combineResults(
   safeBrowsingResult: any, 
   historyResult: { adjustmentScore: number; reasons: string[] }
 ): DetectionResult {
-  // Calculate weighted combination: 25% rule-based, 30% Gemini, 25% Perplexity, 20% Safe Browsing
-  const baseScore = (ruleResult.score * 0.25) + (geminiResult.score * 0.30) + 
-                    (perplexityResult.score * 0.25) + (safeBrowsingResult.score * 0.20);
+  console.log('Combining results with enhanced logic...');
+  console.log('Individual scores:', {
+    rule: ruleResult.score,
+    gemini: geminiResult.score,
+    perplexity: perplexityResult.score,
+    safeBrowsing: safeBrowsingResult.score,
+    historyAdjustment: historyResult.adjustmentScore
+  });
+
+  // ENHANCED WEIGHTED COMBINATION with consensus logic
+  // Safe Browsing gets highest weight as it's most reliable
+  // AI methods get balanced weight
+  // Rule-based gets moderate weight but with pattern importance
+  const weights = {
+    safeBrowsing: 0.35,  // Highest - most reliable
+    gemini: 0.25,        // AI analysis
+    perplexity: 0.20,    // Threat intelligence
+    rules: 0.20          // Pattern matching
+  };
+
+  const baseScore = 
+    (ruleResult.score * weights.rules) + 
+    (geminiResult.score * weights.gemini) + 
+    (perplexityResult.score * weights.perplexity) + 
+    (safeBrowsingResult.score * weights.safeBrowsing);
   
-  // Apply history-based adjustment
-  const combinedScore = Math.max(0, Math.min(1, baseScore + historyResult.adjustmentScore));
+  // Apply history-based learning
+  let adjustedScore = baseScore + historyResult.adjustmentScore;
   
-  // Determine final result with adaptive logic
-  // If any method gives a high score (>0.7), be more cautious
-  const highConfidenceDetection = Math.max(
-    ruleResult.score, 
-    geminiResult.score, 
-    perplexityResult.score, 
-    safeBrowsingResult.score
-  ) > 0.7;
+  // CONSENSUS LOGIC: Multiple methods must agree for high confidence
+  const activeScores = [
+    ruleResult.score, geminiResult.score, 
+    perplexityResult.score, safeBrowsingResult.score
+  ].filter(score => score > 0.1);
+
+  const highScores = activeScores.filter(score => score > 0.6).length;
+  const mediumScores = activeScores.filter(score => score > 0.3 && score <= 0.6).length;
   
-  // Combine all detected patterns for pattern-based analysis
+  // Consensus adjustment
+  if (activeScores.length >= 2) {
+    if (highScores >= 2) {
+      // Multiple high scores - increase confidence
+      adjustedScore = Math.min(1.0, adjustedScore + 0.1);
+      console.log('Multiple high scores detected - increasing confidence');
+    } else if (highScores === 1 && mediumScores === 0) {
+      // Only one high score, others low - reduce confidence
+      adjustedScore = Math.max(0.0, adjustedScore - 0.1);
+      console.log('Single high score with low others - reducing confidence');
+    }
+  }
+
+  const combinedScore = Math.max(0, Math.min(1, adjustedScore));
+  
+  // PATTERN ANALYSIS with severity levels
   const allPatterns = [
     ...ruleResult.patterns,
     ...geminiResult.patterns,
@@ -956,32 +1159,64 @@ function combineResults(
     ...safeBrowsingResult.patterns
   ].filter(pattern => pattern && pattern.length > 0);
   
-  // Critical phishing patterns that should trigger phishing classification regardless of score
-  const criticalPatterns = ['social_engineering', 'impersonation', 'brand_spoofing', 'safe_browsing_threat', 'credential_harvesting', 'domain_spoofing'];
+  // Critical patterns that almost always indicate phishing
+  const criticalPatterns = ['safe_browsing_threat', 'domain_spoofing'];
   const hasCriticalPatterns = allPatterns.some(pattern => criticalPatterns.includes(pattern));
   
-  // Multiple pattern detection - if 3+ patterns detected, likely phishing
-  const multiplePatterns = allPatterns.length >= 3;
+  // High-risk patterns that strongly suggest phishing
+  const highRiskPatterns = ['brand_spoofing', 'impersonation', 'credential_harvesting'];
+  const hasHighRiskPatterns = allPatterns.some(pattern => highRiskPatterns.includes(pattern));
   
-  // Safe Browsing gets special priority - if it flags something, lower the threshold
-  const safeBrowsingDetected = safeBrowsingResult.score > 0.5;
+  // Medium-risk patterns
+  const mediumRiskPatterns = ['social_engineering', 'urgency_language', 'tracking'];
+  const hasMediumRiskPatterns = allPatterns.some(pattern => mediumRiskPatterns.includes(pattern));
   
-  // Improved threshold logic
-  let threshold = 0.5; // default
-  if (safeBrowsingDetected) {
-    threshold = 0.2; // Very low threshold for known malicious URLs
+  // Pattern-based score adjustment
+  let patternAdjustment = 0;
+  if (hasCriticalPatterns) {
+    patternAdjustment += 0.3;
+    console.log('Critical patterns detected');
+  }
+  if (hasHighRiskPatterns) {
+    patternAdjustment += 0.2;
+    console.log('High-risk patterns detected');
+  }
+  if (hasMediumRiskPatterns && allPatterns.length >= 2) {
+    patternAdjustment += 0.1;
+    console.log('Multiple medium-risk patterns detected');
+  }
+
+  const finalScore = Math.max(0, Math.min(1, combinedScore + patternAdjustment));
+  
+  // ADAPTIVE THRESHOLD LOGIC
+  let threshold = 0.5; // Base threshold
+  
+  // Safe Browsing detection overrides other decisions
+  if (safeBrowsingResult.score > 0.5) {
+    threshold = 0.2;
+    console.log('Safe Browsing threat detected - lowering threshold');
   } else if (hasCriticalPatterns) {
-    threshold = 0.3; // Lower threshold for critical patterns
-  } else if (multiplePatterns) {
-    threshold = 0.35; // Lower threshold for multiple patterns
-  } else if (highConfidenceDetection) {
-    threshold = 0.4; // Lower threshold for high confidence
+    threshold = 0.3;
+    console.log('Critical patterns detected - lowering threshold');
+  } else if (hasHighRiskPatterns && activeScores.length >= 2) {
+    threshold = 0.4;
+    console.log('High-risk patterns with consensus - lowering threshold');
+  } else if (activeScores.length === 1 && Math.max(...activeScores) < 0.7) {
+    threshold = 0.6;
+    console.log('Single low-confidence detection - raising threshold');
   }
   
-  // Final determination: phishing if score exceeds threshold OR critical patterns detected
-  const isPhishing = combinedScore > threshold || hasCriticalPatterns || safeBrowsingDetected;
+  // FINAL DETERMINATION
+  const isPhishing = finalScore > threshold || hasCriticalPatterns || safeBrowsingResult.score > 0.5;
   
-  // Calculate confidence based on agreement between methods
+  console.log('Final determination:', {
+    finalScore,
+    threshold,
+    isPhishing,
+    reasoning: hasCriticalPatterns ? 'Critical patterns' : safeBrowsingResult.score > 0.5 ? 'Safe Browsing' : 'Score threshold'
+  });
+  
+  // CONFIDENCE CALCULATION with enhanced logic
   const scores = [ruleResult.score, geminiResult.score, perplexityResult.score, safeBrowsingResult.score]
     .filter(s => s > 0);
   
@@ -990,33 +1225,38 @@ function combineResults(
   if (scores.length === 0) {
     confidence = 0.5; // No analysis available
   } else if (scores.length === 1) {
-    confidence = isPhishing ? scores[0] : (1 - scores[0]);
+    // Single method - moderate confidence
+    confidence = isPhishing ? Math.max(0.6, scores[0]) : Math.max(0.6, 1 - scores[0]);
   } else {
-    // Calculate confidence based on agreement and combined score
-    const variance = scores.reduce((acc, score) => acc + Math.pow(score - combinedScore, 2), 0) / scores.length;
-    const agreement = Math.max(0, 1 - variance * 2); // Convert variance to agreement score
+    // Multiple methods - calculate agreement-based confidence
+    const average = scores.reduce((a, b) => a + b, 0) / scores.length;
+    const variance = scores.reduce((acc, score) => acc + Math.pow(score - average, 2), 0) / scores.length;
+    const agreement = Math.max(0, 1 - variance * 3); // Convert variance to agreement
     
-    // Boost confidence for Safe Browsing detections
-    const safeBrowsingBoost = safeBrowsingDetected ? 0.1 : 0;
-    
-    confidence = isPhishing 
-      ? Math.min(0.99, combinedScore + (agreement * 0.2) + safeBrowsingBoost)
-      : Math.min(0.99, (1 - combinedScore) + (agreement * 0.2));
+    // High agreement between methods = high confidence
+    if (isPhishing) {
+      confidence = Math.min(0.99, finalScore + (agreement * 0.3));
+      // Boost confidence for Safe Browsing detections
+      if (safeBrowsingResult.score > 0.5) confidence = Math.min(0.99, confidence + 0.1);
+    } else {
+      confidence = Math.min(0.99, (1 - finalScore) + (agreement * 0.2));
+    }
   }
   
-  // Determine risk level based on combined score and patterns detected
+  // RISK LEVEL determination with enhanced logic
   let risk_level: 'low' | 'medium' | 'high';
-  if (safeBrowsingDetected || hasCriticalPatterns) {
-    risk_level = 'high'; // Safe Browsing detection or critical patterns always high risk
-  } else if (multiplePatterns || combinedScore > 0.5) {
-    risk_level = 'medium'; // Multiple patterns or moderate score = medium risk
-  } else if (combinedScore < 0.3 && !highConfidenceDetection) {
+  
+  if (safeBrowsingResult.score > 0.5 || hasCriticalPatterns) {
+    risk_level = 'high';
+  } else if (hasHighRiskPatterns || finalScore > 0.6) {
+    risk_level = 'medium';
+  } else if (finalScore < 0.3 && !hasMediumRiskPatterns) {
     risk_level = 'low';
   } else {
-    risk_level = 'medium'; // Default to medium for borderline cases
+    risk_level = 'medium'; // Conservative default
   }
   
-  // Combine reasons and patterns from all methods including history
+  // Combine all reasons from all methods
   const allReasons = [
     ...ruleResult.reasons,
     ...geminiResult.reasons,
@@ -1025,20 +1265,15 @@ function combineResults(
     ...historyResult.reasons
   ].filter(reason => reason && reason.length > 0);
   
-  const uniquePatterns = [
-    ...ruleResult.patterns,
-    ...geminiResult.patterns,
-    ...perplexityResult.patterns,
-    ...safeBrowsingResult.patterns
-  ].filter(pattern => pattern && pattern.length > 0);
+  const uniquePatterns = [...new Set(allPatterns)];
   
-  // Create detailed explanation
+  // Create enhanced explanation
   const explanation = createExplanation(
     isPhishing ? 'phishing' : 'safe',
     confidence,
     allReasons,
     risk_level,
-    allPatterns,
+    uniquePatterns,
     ruleResult.score,
     geminiResult.score,
     perplexityResult.score,
@@ -1046,14 +1281,23 @@ function combineResults(
     historyResult.adjustmentScore
   );
   
+  console.log('Final result summary:', {
+    result: isPhishing ? 'phishing' : 'safe',
+    confidence: Math.round(confidence * 100) / 100,
+    riskLevel: risk_level,
+    patternCount: uniquePatterns.length,
+    reasonCount: allReasons.length
+  });
+  
   return {
     result: isPhishing ? 'phishing' : 'safe',
     confidence: Math.round(confidence * 100) / 100,
-    reasons: allReasons.length > 0 ? allReasons : ['Analysis completed with available detection methods'],
+    reasons: allReasons.length > 0 ? allReasons.slice(0, 8) : ['Email analysis completed with enhanced detection methods'],
     risk_level,
-    detected_patterns: [...new Set(uniquePatterns)], // Remove duplicates
+    detected_patterns: uniquePatterns.slice(0, 10),
     explanation
   };
+}
 }
 
 // Save analysis to database
