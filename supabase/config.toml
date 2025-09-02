@@ -27,6 +27,9 @@ major_version = 15
 enabled = true
 port = 54323
 
+[functions.process-feedback]
+verify_jwt = true
+
 [functions.detect]
 verify_jwt = false
 
@@ -41,6 +44,9 @@ verify_jwt = false
 
 [functions.notifications]
 verify_jwt = false
+
+[functions.analytics]
+verify_jwt = true
 
 [realtime]
 enabled = true

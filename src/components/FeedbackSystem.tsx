@@ -37,7 +37,8 @@ export const FeedbackSystem = ({ scanResult, emailData }: FeedbackSystemProps) =
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase
+      // Submit feedback to database
+      const { data: feedbackRecord, error: feedbackError } = await supabase
         .from('user_feedback')
         .insert({
           clerk_user_id: user.id,
@@ -49,10 +50,12 @@ export const FeedbackSystem = ({ scanResult, emailData }: FeedbackSystemProps) =
           email_content: emailData.content.substring(0, 1000), // Limit content length
           confidence_score: scanResult.confidence,
           detected_patterns: scanResult.reasons
-        });
+        })
+        .select()
+        .single();
 
-      if (error) {
-        console.error('Feedback submission error:', error);
+      if (feedbackError) {
+        console.error('Feedback submission error:', feedbackError);
         toast({
           variant: "destructive",
           title: "Feedback Error",
@@ -61,10 +64,28 @@ export const FeedbackSystem = ({ scanResult, emailData }: FeedbackSystemProps) =
         return;
       }
 
+      // Process feedback for learning (async, don't wait for completion)
+      if (feedbackRecord) {
+        supabase.functions.invoke('process-feedback', {
+          body: {
+            feedbackId: feedbackRecord.id,
+            clerkUserId: user.id
+          }
+        }).then(({ data, error }) => {
+          if (error) {
+            console.warn('Feedback processing failed:', error);
+          } else {
+            console.log('Feedback processed successfully:', data);
+          }
+        }).catch(err => {
+          console.warn('Feedback processing error:', err);
+        });
+      }
+
       setIsSubmitted(true);
       toast({
         title: "Feedback Submitted",
-        description: "Thank you! Your feedback helps improve our detection accuracy.",
+        description: "Thank you! Your feedback is being processed to improve our detection accuracy.",
       });
 
       // Reset form after successful submission
@@ -98,7 +119,8 @@ export const FeedbackSystem = ({ scanResult, emailData }: FeedbackSystemProps) =
           Help Improve Accuracy
         </CardTitle>
         <CardDescription>
-          Was this analysis correct? Your feedback helps train our AI to be more accurate.
+          Was this analysis correct? Your feedback is validated and helps train our AI to be more accurate. 
+          High-quality feedback from trusted users carries more weight in improving our detection system.
         </CardDescription>
       </CardHeader>
       
@@ -172,26 +194,27 @@ export const FeedbackSystem = ({ scanResult, emailData }: FeedbackSystemProps) =
                   >
                     <label className="block text-sm font-medium text-foreground">
                       {feedbackType === 'correct' 
-                        ? "Additional comments (optional):" 
-                        : "What did we get wrong? (helps us improve)"
+                        ? "Additional insights (optional) - helps us understand what makes emails legitimate:" 
+                        : "What did we get wrong? (required for learning) - be specific to help us improve"
                       }
                     </label>
                     <Textarea
                       placeholder={
                         feedbackType === 'correct'
-                          ? "Any additional insights about this email..."
-                          : "e.g., This is actually from a legitimate company, The sender is known to me, etc."
+                          ? "e.g., This sender is known to me, This matches typical communication from this organization..."
+                          : "e.g., This is from a legitimate company I do business with, The sender address is correct, This is an expected email..."
                       }
                       value={feedbackText}
                       onChange={(e) => setFeedbackText(e.target.value)}
                       rows={3}
                       className="bg-input border-border/40"
                       disabled={isSubmitting}
+                      required={feedbackType === 'incorrect'}
                     />
                     
                     <Button
                       onClick={handleFeedbackSubmission}
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || (feedbackType === 'incorrect' && !feedbackText.trim())}
                       className="w-full"
                     >
                       {isSubmitting ? (

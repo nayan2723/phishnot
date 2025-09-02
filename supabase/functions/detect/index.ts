@@ -1096,7 +1096,8 @@ function combineResults(
   geminiResult: any, 
   perplexityResult: any, 
   safeBrowsingResult: any, 
-  historyResult: { adjustmentScore: number; reasons: string[] }
+  historyResult: { adjustmentScore: number; reasons: string[] },
+  feedbackResult?: { adjustmentScore: number; learningInsights: string[] }
 ): DetectionResult {
   console.log('Combining results with enhanced logic...');
   console.log('Individual scores:', {
@@ -1104,7 +1105,8 @@ function combineResults(
     gemini: geminiResult.score,
     perplexity: perplexityResult.score,
     safeBrowsing: safeBrowsingResult.score,
-    historyAdjustment: historyResult.adjustmentScore
+    historyAdjustment: historyResult.adjustmentScore,
+    feedbackAdjustment: feedbackResult?.adjustmentScore || 0
   });
 
   // ENHANCED WEIGHTED COMBINATION with consensus logic
@@ -1126,6 +1128,11 @@ function combineResults(
   
   // Apply history-based learning
   let adjustedScore = baseScore + historyResult.adjustmentScore;
+  
+  // Apply validated feedback learning
+  if (feedbackResult) {
+    adjustedScore += feedbackResult.adjustmentScore;
+  }
   
   // CONSENSUS LOGIC: Multiple methods must agree for high confidence
   const activeScores = [
@@ -1299,6 +1306,79 @@ function combineResults(
   };
 }
 
+// Apply validated feedback-based learning
+async function applyFeedbackBasedLearning(
+  supabase: any,
+  emailText: string,
+  sender: string,
+  subject: string,
+  detectedPatterns: string[]
+): Promise<HistoryResult> {
+  try {
+    console.log('Applying feedback-based learning...');
+
+    // Get validated feedback patterns
+    const { data: patterns, error } = await supabase
+      .from('validated_feedback_patterns')
+      .select('*')
+      .gte('feedback_count', 2); // Only patterns with multiple validations
+
+    if (error || !patterns || patterns.length === 0) {
+      console.log('No validated feedback patterns found');
+      return { adjustmentScore: 0, learningInsights: [] };
+    }
+
+    let adjustmentScore = 0;
+    const learningInsights: string[] = [];
+
+    // Check for matching patterns in the current email
+    patterns.forEach(pattern => {
+      let matches = false;
+
+      switch (pattern.pattern_type) {
+        case 'sender_domain':
+          if (sender && sender.toLowerCase().includes(pattern.pattern_value.toLowerCase())) {
+            matches = true;
+          }
+          break;
+
+        case 'subject_keyword':
+        case 'subject_pattern':
+          if (subject && subject.toLowerCase().includes(pattern.pattern_value.toLowerCase())) {
+            matches = true;
+          }
+          break;
+
+        case 'content_indicator':
+          if (emailText && emailText.toLowerCase().includes(pattern.pattern_value.toLowerCase())) {
+            matches = true;
+          }
+          break;
+      }
+
+      if (matches) {
+        // Weight the adjustment by feedback count (more feedback = more reliable)
+        const weightedAdjustment = pattern.confidence_boost * Math.min(1, pattern.feedback_count / 10);
+        adjustmentScore += weightedAdjustment;
+        
+        learningInsights.push(
+          `Feedback learning: ${pattern.pattern_type} "${pattern.pattern_value}" (${pattern.feedback_count} validations, ${weightedAdjustment > 0 ? '+' : ''}${(weightedAdjustment * 100).toFixed(1)}% confidence)`
+        );
+      }
+    });
+
+    // Cap the total adjustment to prevent extreme changes
+    adjustmentScore = Math.max(-0.3, Math.min(0.3, adjustmentScore));
+
+    console.log('Feedback adjustment score:', adjustmentScore);
+    return { adjustmentScore, learningInsights };
+
+  } catch (error) {
+    console.error('Feedback learning error:', error);
+    return { adjustmentScore: 0, learningInsights: [] };
+  }
+}
+
 // Save analysis to database
 async function saveAnalysis(
   supabase: any,
@@ -1374,7 +1454,7 @@ serve(async (req) => {
     console.log('Perplexity AI score:', perplexityResult.score);
     console.log('Safe Browsing score:', safeBrowsingResult.score);
 
-    // Apply history-based learning adjustments
+// Apply history-based learning adjustments
     const historyResult = await applyHistoryBasedLearning(
       supabase,
       requestData.clerk_user_id,
@@ -1384,8 +1464,19 @@ serve(async (req) => {
 
     console.log('History adjustment:', historyResult.adjustmentScore);
 
-    // Combine results from all four methods plus history learning
-    const finalResult = combineResults(ruleResult, geminiResult, perplexityResult, safeBrowsingResult, historyResult);
+    // Apply validated feedback learning adjustments
+    const feedbackResult = await applyFeedbackBasedLearning(
+      supabase,
+      requestData.email_text,
+      requestData.sender,
+      requestData.subject,
+      [...ruleResult.patterns, ...geminiResult.patterns, ...perplexityResult.patterns]
+    );
+
+    console.log('Feedback adjustment:', feedbackResult.adjustmentScore);
+
+    // Combine results from all methods plus learning adjustments
+    const finalResult = combineResults(ruleResult, geminiResult, perplexityResult, safeBrowsingResult, historyResult, feedbackResult);
 
     console.log('Final result:', finalResult.result, 'Confidence:', finalResult.confidence);
 

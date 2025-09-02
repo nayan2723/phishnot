@@ -318,6 +318,66 @@ export type Database = {
           },
         ]
       }
+      user_feedback_quality: {
+        Row: {
+          clerk_user_id: string
+          correct_feedback_count: number | null
+          created_at: string
+          id: string
+          incorrect_feedback_count: number | null
+          reputation_score: number | null
+          updated_at: string
+        }
+        Insert: {
+          clerk_user_id: string
+          correct_feedback_count?: number | null
+          created_at?: string
+          id?: string
+          incorrect_feedback_count?: number | null
+          reputation_score?: number | null
+          updated_at?: string
+        }
+        Update: {
+          clerk_user_id?: string
+          correct_feedback_count?: number | null
+          created_at?: string
+          id?: string
+          incorrect_feedback_count?: number | null
+          reputation_score?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      validated_feedback_patterns: {
+        Row: {
+          confidence_boost: number | null
+          created_at: string
+          feedback_count: number | null
+          id: string
+          pattern_type: string
+          pattern_value: string
+          updated_at: string
+        }
+        Insert: {
+          confidence_boost?: number | null
+          created_at?: string
+          feedback_count?: number | null
+          id?: string
+          pattern_type: string
+          pattern_value: string
+          updated_at?: string
+        }
+        Update: {
+          confidence_boost?: number | null
+          created_at?: string
+          feedback_count?: number | null
+          id?: string
+          pattern_type?: string
+          pattern_value?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
