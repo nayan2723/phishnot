@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, AlertTriangle, CheckCircle, FileText, User, Shield, Zap, Eye, X } from "lucide-react";
+import { Upload, AlertTriangle, CheckCircle, FileText, User, Shield, Zap, Eye, X, Download, Share2 } from "lucide-react";
 import { useUser, UserButton } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -265,6 +265,113 @@ export const ResponsiveScanner = () => {
       title: "File removed",
       description: "Upload cancelled successfully.",
     });
+  };
+
+  const exportCurrentAnalysis = async (format: 'pdf' | 'csv') => {
+    if (!scanResult || !user) return;
+
+    try {
+      const response = await fetch(`https://jpxnekifttziwkiiptlv.supabase.co/functions/v1/export-report`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5la2lmdHR6aXdraWlwdGx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NDk0NDgsImV4cCI6MjA3MTQyNTQ0OH0.WDLMYC66wqJC_FSXuLzoIXb2WiPzM9Vo0hmYBaULDIY`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          analysis_id: `current-${Date.now()}`,
+          format: format,
+          clerk_user_id: user.id,
+          custom_analysis: {
+            id: `scan-${Date.now()}`,
+            sender_email: senderEmail || 'Unknown',
+            subject: subject || 'No subject',
+            email_body: emailBody,
+            is_phishing: scanResult.isPhishing,
+            confidence_score: scanResult.confidence,
+            analysis_reasons: scanResult.reasons,
+            analyzed_at: new Date().toISOString()
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `phishnot-current-scan.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      
+      setTimeout(() => {
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      }, 100);
+
+      toast({
+        title: "Export Complete",
+        description: `Analysis exported as ${format.toUpperCase()}`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export current analysis",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const shareCurrentAnalysis = async () => {
+    if (!scanResult || !user) return;
+
+    try {
+      const response = await fetch(`https://jpxnekifttziwkiiptlv.supabase.co/functions/v1/export-report`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5la2lmdHR6aXdraWlwdGx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NDk0NDgsImV4cCI6MjA3MTQyNTQ0OH0.WDLMYC66wqJC_FSXuLzoIXb2WiPzM9Vo0hmYBaULDIY`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          analysis_id: `current-${Date.now()}`,
+          action: 'share',
+          clerk_user_id: user.id,
+          custom_analysis: {
+            id: `share-${Date.now()}`,
+            sender_email: senderEmail || 'Unknown',
+            subject: subject || 'No subject', 
+            email_body: emailBody,
+            is_phishing: scanResult.isPhishing,
+            confidence_score: scanResult.confidence,
+            analysis_reasons: scanResult.reasons,
+            analyzed_at: new Date().toISOString()
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Share failed');
+      }
+
+      const data = await response.json();
+      await navigator.clipboard.writeText(data.shareUrl);
+
+      toast({
+        title: "Share Link Created",
+        description: "Shareable link copied to clipboard! Valid for 7 days.",
+      });
+    } catch (error) {
+      console.error('Share error:', error);
+      toast({
+        title: "Share Failed",
+        description: "Failed to create share link",
+        variant: "destructive",
+      });
+    }
   };
 
   const stepVariants = {
@@ -624,25 +731,45 @@ export const ResponsiveScanner = () => {
                     </div>
                   </div>
 
-                  <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                    <Button
-                      onClick={resetScanner}
-                      variant="outline"
-                      size="lg"
-                      className="flex-1"
-                    >
-                      Scan Another Email
-                    </Button>
-                    <Button
-                      size="lg"
-                      className="flex-1 glow-primary"
-                      onClick={() => toast({
-                        title: "Report Saved",
-                        description: "Security report has been saved to your account.",
-                      })}
-                    >
-                      Save Report
-                    </Button>
+                  <div className="flex flex-col gap-4 pt-4">
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <Button
+                        onClick={resetScanner}
+                        variant="outline"
+                        size="lg"
+                        className="flex-1"
+                      >
+                        Scan Another Email
+                      </Button>
+                      <Button
+                        onClick={() => exportCurrentAnalysis('pdf')}
+                        variant="outline"
+                        size="lg"
+                        className="flex-1"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Export PDF
+                      </Button>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-4">
+                      <Button
+                        onClick={() => exportCurrentAnalysis('csv')}
+                        variant="outline"
+                        size="lg"
+                        className="flex-1"
+                      >
+                        <Download className="w-4 h-4 mr-2" />
+                        Export CSV
+                      </Button>
+                      <Button
+                        onClick={shareCurrentAnalysis}
+                        size="lg"
+                        className="flex-1 glow-primary"
+                      >
+                        <Share2 className="w-4 h-4 mr-2" />
+                        Share Report
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
