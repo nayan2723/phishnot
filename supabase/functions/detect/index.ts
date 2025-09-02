@@ -1298,7 +1298,6 @@ function combineResults(
     explanation
   };
 }
-}
 
 // Save analysis to database
 async function saveAnalysis(
