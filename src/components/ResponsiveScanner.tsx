@@ -271,13 +271,8 @@ export const ResponsiveScanner = () => {
     if (!scanResult || !user) return;
 
     try {
-      const response = await fetch(`https://jpxnekifttziwkiiptlv.supabase.co/functions/v1/export-report`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5la2lmdHR6aXdraWlwdGx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NDk0NDgsImV4cCI6MjA3MTQyNTQ0OH0.WDLMYC66wqJC_FSXuLzoIXb2WiPzM9Vo0hmYBaULDIY`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('export-report', {
+        body: {
           analysis_id: `current-${Date.now()}`,
           format: format,
           clerk_user_id: user.id,
@@ -291,14 +286,14 @@ export const ResponsiveScanner = () => {
             analysis_reasons: scanResult.reasons,
             analyzed_at: new Date().toISOString()
           }
-        })
+        }
       });
 
-      if (!response.ok) {
+      if (error) {
         throw new Error('Export failed');
       }
 
-      const blob = await response.blob();
+      const blob = new Blob([data], { type: format === 'pdf' ? 'application/pdf' : 'text/csv' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
@@ -330,13 +325,8 @@ export const ResponsiveScanner = () => {
     if (!scanResult || !user) return;
 
     try {
-      const response = await fetch(`https://jpxnekifttziwkiiptlv.supabase.co/functions/v1/export-report`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpweG5la2lmdHR6aXdraWlwdGx2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTU4NDk0NDgsImV4cCI6MjA3MTQyNTQ0OH0.WDLMYC66wqJC_FSXuLzoIXb2WiPzM9Vo0hmYBaULDIY`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('export-report', {
+        body: {
           analysis_id: `current-${Date.now()}`,
           action: 'share',
           clerk_user_id: user.id,
@@ -350,14 +340,13 @@ export const ResponsiveScanner = () => {
             analysis_reasons: scanResult.reasons,
             analyzed_at: new Date().toISOString()
           }
-        })
+        }
       });
 
-      if (!response.ok) {
+      if (error) {
         throw new Error('Share failed');
       }
 
-      const data = await response.json();
       await navigator.clipboard.writeText(data.shareUrl);
 
       toast({

@@ -1415,6 +1415,32 @@ serve(async (req) => {
 
   try {
     const requestData: DetectionRequest = await req.json();
+    
+    // Input validation and sanitization
+    const { senderEmail, subject, emailBody, links, clerk_user_id } = requestData;
+    
+    if (!senderEmail || !subject || !emailBody) {
+      return new Response(
+        JSON.stringify({ error: 'Missing required fields: senderEmail, subject, emailBody' }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(senderEmail)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid email format' }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // Sanitize inputs to prevent injection attacks
+    const sanitize = (str: string) => str.replace(/[<>'"]/g, '').trim();
+    const cleanSender = sanitize(senderEmail);
+    const cleanSubject = sanitize(subject);
+    const cleanBody = sanitize(emailBody);
+    
     console.log('Starting enhanced phishing detection with multiple AI engines and history learning...');
 
     // Rate limiting check

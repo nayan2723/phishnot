@@ -258,7 +258,32 @@ serve(async (req) => {
   }
 
   try {
+    // Parse request body with validation
     const { feedbackId, clerkUserId }: FeedbackRequest = await req.json();
+    
+    if (!feedbackId || !clerkUserId) {
+      console.error('Missing required fields:', { feedbackId, clerkUserId });
+      return new Response(
+        JSON.stringify({ error: 'Missing feedbackId or clerkUserId' }),
+        { status: 400, headers: corsHeaders }
+      );
+    }
+
+    // Verify user authentication by checking if the user owns this feedback
+    const { data: userCheck, error: userError } = await supabase
+      .from('user_feedback')
+      .select('clerk_user_id')
+      .eq('id', feedbackId)
+      .eq('clerk_user_id', clerkUserId)
+      .single();
+
+    if (userError || !userCheck) {
+      console.error('User verification failed:', userError);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized or invalid feedback ID' }),
+        { status: 403, headers: corsHeaders }
+      );
+    }
 
     console.log('Processing feedback:', feedbackId, 'for user:', clerkUserId);
 
