@@ -223,7 +223,7 @@ interface DetectionResult {
   };
 }
 
-// Enhanced rule-based detection with improved accuracy and false positive reduction
+// Enhanced rule-based detection with improved accuracy and reduced false positives
 function ruleBasedDetection(email_text: string, sender?: string, subject?: string, links?: string[]): {
   score: number;
   reasons: string[];
@@ -233,85 +233,86 @@ function ruleBasedDetection(email_text: string, sender?: string, subject?: strin
   const reasons: string[] = [];
   const patterns: string[] = [];
 
-  console.log('Starting enhanced rule-based detection...');
+  console.log('Starting balanced rule-based detection...');
 
-  // WHITELIST: Known legitimate domains and senders
+  // EXPANDED WHITELIST: Known legitimate domains and senders
   const legitimateDomains = [
-    'gov.in', 'nic.in', 'aicte-india.org', 'ugc.ac.in', 'mhrd.gov.in',
-    'gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com',
+    // Government and Educational
+    'gov.in', 'nic.in', 'aicte-india.org', 'ugc.ac.in', 'mhrd.gov.in', 'india.gov.in',
+    'edu', 'ac.in', 'res.in', 'mil.in', 'co.in',
+    // Major Email Providers
+    'gmail.com', 'outlook.com', 'hotmail.com', 'yahoo.com', 'protonmail.com',
+    'icloud.com', 'live.com', 'msn.com', 'yandex.com',
+    // Major Tech Companies
     'amazon.com', 'paypal.com', 'apple.com', 'microsoft.com', 'google.com',
-    'facebook.com', 'linkedin.com', 'twitter.com', 'instagram.com',
-    'github.com', 'stackoverflow.com', 'medium.com',
-    'banks.org', 'rbi.org.in', 'npci.org.in'
+    'facebook.com', 'linkedin.com', 'twitter.com', 'instagram.com', 'meta.com',
+    'github.com', 'stackoverflow.com', 'medium.com', 'slack.com', 'zoom.us',
+    // Banking and Finance
+    'banks.org', 'rbi.org.in', 'npci.org.in', 'visa.com', 'mastercard.com',
+    // Common Business Domains
+    'salesforce.com', 'hubspot.com', 'mailchimp.com', 'zendesk.com',
+    'dropbox.com', 'adobe.com', 'atlassian.com', 'stripe.com'
   ];
 
-  const isFromLegitimateSource = sender && legitimateDomains.some(domain => 
-    sender.toLowerCase().endsWith('@' + domain) || sender.toLowerCase().endsWith('.' + domain)
-  );
+  // Check if sender is from legitimate domain
+  const isFromLegitimateSource = sender && legitimateDomains.some(domain => {
+    const senderDomain = sender.toLowerCase().split('@')[1];
+    return senderDomain === domain || senderDomain?.endsWith('.' + domain);
+  });
 
-  // Reduce base suspicion for emails from legitimate sources
+  // Strong protection for legitimate sources
   if (isFromLegitimateSource) {
-    console.log('Email from whitelisted domain:', sender);
-    score -= 0.2; // Give legitimate sources benefit of doubt
+    console.log('Email from verified legitimate domain:', sender);
+    score -= 0.3; // Strong legitimate bias
   }
 
-  // ENHANCED: Generic greeting detection with context awareness
+  // IMPROVED: Generic greeting detection - be much more lenient
   const genericGreetingPattern = /Dear\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]*)*(?:\s+[A-Z][a-z]+)*)/i;
   const greetingMatch = email_text.match(genericGreetingPattern);
   
+  // Only flag if multiple suspicious indicators AND not from legitimate source
   if (greetingMatch && !isFromLegitimateSource) {
-    // Only flag generic greetings from non-legitimate sources
     const extractedName = greetingMatch[1];
     
-    // Check if it's a very generic/fake name pattern
-    const suspiciousNamePatterns = [
-      /^[A-Z][a-z]+ [A-Z][a-z]+$/, // Perfect FirstName LastName format
-      /User|Customer|Client|Member|Sir|Madam/i,
-      /John Doe|Jane Doe|Test User|Sample Name/i
+    // Only flag obviously fake names - be much more restrictive
+    const obviouslyFakeNames = [
+      /^(John Doe|Jane Doe|Test User|Sample Name|User Name|Customer Name|Client Name)$/i,
+      /^(Dear User|Dear Customer|Dear Client|Dear Member)$/i
     ];
     
-    const isSuspiciousName = suspiciousNamePatterns.some(pattern => pattern.test(extractedName));
+    const isObviouslyFake = obviouslyFakeNames.some(pattern => pattern.test(extractedName));
     
-    if (isSuspiciousName) {
-      score += 0.4; // Reduced from 0.8 to prevent false positives
-      reasons.push('Suspicious generic greeting pattern detected');
+    if (isObviouslyFake) {
+      score += 0.3; // Reduced further - only flag obvious fakes
+      reasons.push('Obviously fake greeting name detected');
       patterns.push('social_engineering');
-      console.log('Suspicious generic greeting pattern detected');
-    } else if (sender && !sender.toLowerCase().includes(extractedName.toLowerCase().split(' ')[0])) {
-      // Name in greeting doesn't match sender name
-      score += 0.3;
-      reasons.push('Greeting name inconsistent with sender');
-      patterns.push('social_engineering');
+      console.log('Obviously fake greeting detected:', extractedName);
     }
+    // Remove the sender name mismatch check as it causes too many false positives
   }
 
-  // ENHANCED: Reply-to mismatch with legitimate domain validation
+  // IMPROVED: Reply-to mismatch - only flag obvious spoofing
   const replyToPattern = /reply.?to[:\s]+([^\s\n]+@[^\s\n]+)/i;
   const replyToMatch = email_text.match(replyToPattern);
-  if (replyToMatch && sender) {
+  if (replyToMatch && sender && !isFromLegitimateSource) {
     const replyTo = replyToMatch[1].toLowerCase();
     const senderEmail = sender.toLowerCase();
     const senderDomain = senderEmail.split('@')[1];
     const replyToDomain = replyTo.split('@')[1];
     
     if (senderDomain && replyToDomain && senderDomain !== replyToDomain) {
-      // Critical: Check for obvious phishing indicators
-      if (replyTo.includes('example.com') || replyToDomain === 'example.com' || replyTo.includes('test.com')) {
-        score += 0.9; // Maximum score for obvious fake domains
-        reasons.push(`Fake reply-to domain detected: ${replyToDomain}`);
+      // Only flag obvious fake domains or major discrepancies
+      const suspiciousDomains = ['example.com', 'test.com', 'fake.com', 'spam.com', 'phishing.com'];
+      
+      if (suspiciousDomains.some(domain => replyTo.includes(domain) || replyToDomain === domain)) {
+        score += 0.8; // High score for obviously fake domains
+        reasons.push(`Obvious fake reply-to domain detected: ${replyToDomain}`);
         patterns.push('impersonation');
         patterns.push('domain_spoofing');
-        console.log('Fake reply-to domain detected:', replyToDomain);
-      } else if (!legitimateDomains.includes(senderDomain) && !legitimateDomains.includes(replyToDomain)) {
-        // Both domains are unknown - moderate suspicion
-        score += 0.4; // Reduced from 0.6
-        reasons.push(`Reply-to domain mismatch between unknown domains: ${senderDomain} vs ${replyToDomain}`);
-        patterns.push('domain_spoofing');
-      } else if (legitimateDomains.includes(senderDomain) && !legitimateDomains.includes(replyToDomain)) {
-        // Legitimate sender with suspicious reply-to
-        score += 0.7;
-        reasons.push(`Legitimate sender with suspicious reply-to: ${senderDomain} vs ${replyToDomain}`);
-        patterns.push('impersonation');
+        console.log('Obvious fake reply-to domain detected:', replyToDomain);
+      } else {
+        // Don't penalize legitimate business practices like forwarding services
+        console.log('Reply-to domain differs but not flagging as suspicious:', senderDomain, 'vs', replyToDomain);
       }
     }
   }
@@ -476,16 +477,13 @@ function ruleBasedDetection(email_text: string, sender?: string, subject?: strin
     }
   }
 
-  // ENHANCED: Urgency tactics with context awareness
+  // IMPROVED: Urgency tactics - much more lenient for legitimate sources
   const urgencyPatterns = [
-    { pattern: /urgent[ly]?\s*(action|response|attention)/i, weight: 0.3, description: 'urgent action required' },
-    { pattern: /immediate[ly]?\s*(verify|update|confirm)/i, weight: 0.3, description: 'immediate verification request' },
-    { pattern: /act now|click here now|respond now/i, weight: 0.4, description: 'pressure to act immediately' },
-    { pattern: /limited time|expires? (today|tonight|soon)/i, weight: 0.2, description: 'artificial time pressure' },
-    { pattern: /suspend[ed]?\s*(account|service)/i, weight: 0.4, description: 'account suspension threat' },
-    { pattern: /unusual activity|suspicious (login|access)/i, weight: 0.3, description: 'security scare tactic' },
-    { pattern: /verify (now|immediately|within \d+)/i, weight: 0.3, description: 'urgent verification demand' },
-    { pattern: /final (notice|warning|reminder)/i, weight: 0.2, description: 'final notice pressure' }
+    { pattern: /urgent[ly]?\s*(action|response|attention)/i, weight: 0.2, description: 'urgent action required' },
+    { pattern: /act now|click here now|respond now/i, weight: 0.3, description: 'aggressive pressure tactics' },
+    { pattern: /expires? (today|tonight|in \d+ hours?)/i, weight: 0.2, description: 'artificial time pressure' },
+    { pattern: /suspend[ed]?\s*(account|service)/i, weight: 0.3, description: 'account suspension threat' },
+    { pattern: /final (notice|warning|reminder)/i, weight: 0.1, description: 'final notice pressure' }
   ];
 
   const fullText = `${email_text} ${subject || ''} ${sender || ''}`;
@@ -494,18 +492,19 @@ function ruleBasedDetection(email_text: string, sender?: string, subject?: strin
 
   for (const urgencyItem of urgencyPatterns) {
     if (urgencyItem.pattern.test(fullText)) {
-      // Reduce weight for legitimate senders
-      const adjustedWeight = isFromLegitimateSource ? urgencyItem.weight * 0.5 : urgencyItem.weight;
+      // Much stronger reduction for legitimate senders - these are normal business practices
+      const adjustedWeight = isFromLegitimateSource ? urgencyItem.weight * 0.1 : urgencyItem.weight;
       urgencyScore += adjustedWeight;
       detectedUrgencyTactics.push(urgencyItem.description);
     }
   }
 
-  if (urgencyScore > 0) {
-    score += Math.min(urgencyScore, 0.4); // Cap urgency contribution
-    reasons.push(`Pressure tactics detected: ${detectedUrgencyTactics.join(', ')}`);
+  // Only flag if significant urgency detected AND not from legitimate source
+  if (urgencyScore > 0.2 && !isFromLegitimateSource) {
+    score += Math.min(urgencyScore, 0.3); // Reduced cap
+    reasons.push(`Suspicious pressure tactics detected: ${detectedUrgencyTactics.join(', ')}`);
     patterns.push('urgency_language');
-    console.log('Urgency tactics detected:', detectedUrgencyTactics);
+    console.log('Suspicious urgency tactics detected:', detectedUrgencyTactics);
   }
 
   // ENHANCED: Credential harvesting detection with severity levels
@@ -610,44 +609,49 @@ Content: ${normalizedText}`;
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: `You are an expert cybersecurity analyst with a focus on ACCURATE phishing detection while minimizing false positives. Analyze this email objectively.
+            text: `You are a cybersecurity expert focused on ACCURATE phishing detection with MINIMAL false positives. Your primary goal is to distinguish between legitimate business communications and actual phishing attempts.
 
-BALANCED ANALYSIS APPROACH:
-1. First, check if the sender is from a known legitimate domain (.gov.in, major banks, tech companies, etc.)
-2. Look for GENUINE red flags, not common business language
-3. Consider context - legitimate organizations may use formal language
-4. Focus on CLEAR indicators of deception, not just urgent language
+CRITICAL: Be VERY conservative in scoring. Err on the side of marking emails as safe unless there are CLEAR phishing indicators.
 
-SCORING GUIDELINES:
-- 0.0-0.2: Clearly legitimate (government, known companies with consistent branding)
-- 0.3-0.5: Some concerns but likely legitimate
-- 0.6-0.7: Suspicious elements requiring caution
-- 0.8-1.0: Clear phishing indicators (fake domains, obvious deception)
+ANALYSIS APPROACH:
+1. FIRST CHECK: Is sender from legitimate domain? (.gov, .edu, major corporations, known services)
+2. CONTEXT MATTERS: Consider if language/urgency is appropriate for the claimed sender
+3. FOCUS ON DECEPTION: Look for actual attempts to deceive, not standard business practices
+4. VERIFY CONSISTENCY: Check if content matches sender's legitimate business
 
-MAJOR RED FLAGS (0.8+ score):
-- Sender domain doesn't match claimed organization
-- Reply-to address completely different from sender
-- Tracking pixels from suspicious domains
-- Obvious typosquatting or domain spoofing
-- Requests for sensitive credentials with no legitimate context
+CONSERVATIVE SCORING:
+- 0.0-0.2: Clearly legitimate (verified domains, consistent branding, appropriate content)
+- 0.3-0.4: Minor concerns but likely legitimate business communication
+- 0.5-0.6: Some suspicious elements but could be legitimate
+- 0.7-0.8: Multiple concerning indicators suggesting phishing attempt
+- 0.9-1.0: Clear phishing (obvious spoofing, malicious intent, fake domains)
 
-COMMON BUSINESS PRACTICES (DO NOT score high):
-- Formal greetings from legitimate organizations
-- Account notifications from verified senders
-- Legitimate marketing emails
-- Standard business communications
+DEFINITIVE PHISHING INDICATORS (0.8+ score):
+- Fake/spoofed domains pretending to be legitimate services
+- Clear attempts to steal credentials with deceptive practices
+- Malicious links to fake login pages
+- Obvious typosquatting or brand impersonation
+- Multiple contradictory elements indicating deception
 
-Respond ONLY with this exact JSON format:
+LEGITIMATE BUSINESS PRACTICES (score 0.0-0.3):
+- Professional greetings and standard email templates
+- Account notifications from verified corporate senders
+- Marketing communications from legitimate companies
+- Government communications from .gov domains
+- Educational institutions from .edu domains
+- Standard business language and formatting
+
+Respond ONLY in JSON format:
 {
-  "score": <float 0.0-1.0 based on genuine threat level>,
-  "reasons": ["specific evidence-based reason 1", "specific evidence-based reason 2"],
-  "patterns": ["only confirmed patterns like social_engineering, impersonation, brand_spoofing, tracking, credential_harvesting, domain_spoofing"]
+  "score": <float 0.0-1.0 where lower is safer>,
+  "reasons": ["specific evidence-based reasons"],
+  "patterns": ["confirmed_threat_patterns_only"]
 }
 
 Email to analyze:
 ${fullText}
 
-Be precise and evidence-based in your assessment.`
+Remember: Better to miss a sophisticated phishing email than to falsely flag legitimate business communication.`
           }]
         }],
         generationConfig: {
@@ -745,23 +749,45 @@ Content: ${normalizedText}`;
         messages: [
           {
             role: 'system',
-            content: `You are a cybersecurity expert with access to current threat intelligence. Analyze emails for phishing using latest attack patterns.
+            content: `You are a cybersecurity expert with access to current threat intelligence. Your mission is to provide ACCURATE phishing detection with MINIMAL false positives for business communications.
 
-CRITICAL INDICATORS (assign high scores 0.8+):
-- Generic greetings with full names ("Dear [Full Name]") = major red flag
-- Sender domain vs reply-to mismatch = credential theft attempt
-- Tracking pixels/suspicious image URLs = data harvesting
-- Brand impersonation with inconsistencies = sophisticated attack
-- Multiple suspicious elements = coordinated phishing campaign
+CRITICAL INSTRUCTION: Be extremely conservative. Only flag emails with CLEAR, UNAMBIGUOUS phishing indicators.
+
+ANALYSIS PRIORITIES:
+1. Verify sender legitimacy against known domains and organizations
+2. Look for actual deception attempts, not standard business language
+3. Consider context and appropriateness of content for claimed sender
+4. Focus on real threats, not common marketing or administrative practices
+
+CONSERVATIVE SCORING REQUIRED:
+- 0.0-0.2: Legitimate business communication (default assumption)
+- 0.3-0.4: Some concerns but likely legitimate 
+- 0.5-0.6: Multiple minor issues or single moderate concern
+- 0.7-0.8: Strong evidence of phishing attempt
+- 0.9-1.0: Obvious phishing with clear malicious intent
+
+CLEAR PHISHING INDICATORS (0.8+ score only):
+- Confirmed fake domains mimicking legitimate services
+- Credential harvesting attempts with deceptive URLs
+- Brand impersonation with clear inconsistencies
+- Malicious link destinations (confirmed threats)
+- Multiple red flags indicating coordinated attack
+
+LEGITIMATE PRACTICES (score 0.0-0.3):
+- Standard corporate communications and templates
+- Official notifications from verified organizations  
+- Educational or government communications
+- Marketing emails from established companies
+- Professional service communications
 
 Respond ONLY with valid JSON:
 {
-  "score": <float 0.0-1.0 where 0=safe, 1=phishing>,
-  "reasons": ["specific indicator 1", "specific indicator 2"],
-  "patterns": ["social_engineering", "impersonation", "brand_spoofing", "tracking", "credential_harvesting"]
+  "score": <float 0.0-1.0 - be conservative, prefer lower scores>,
+  "reasons": ["specific evidence only"],
+  "patterns": ["confirmed_threats_only"]
 }
 
-Focus on current phishing campaigns and attack vectors.`
+REMEMBER: It's better to miss a sophisticated attack than falsely flag legitimate business email.`
           },
           {
             role: 'user',
