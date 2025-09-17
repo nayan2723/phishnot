@@ -14,10 +14,14 @@ import { BackgroundPaths } from "@/components/ui/background-paths";
 import { ResponsiveScanner } from "@/components/ResponsiveScanner";
 import { SecurityFeatures } from "@/components/SecurityFeatures";
 import { AnalysisHistory } from "@/components/AnalysisHistory";
+import AIChatAssistant from "@/components/AIChatAssistant";
+import AdvancedAnalyticsDashboard from "@/components/AdvancedAnalyticsDashboard";
+import Dashboard from "@/components/Dashboard";
 
 const PhishNotApp = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [currentView, setCurrentView] = useState<'main' | 'history'>('main');
+  const [currentView, setCurrentView] = useState<'main' | 'history' | 'dashboard' | 'advanced-analytics'>('main');
+  const [isChatOpen, setIsChatOpen] = useState(false);
   const { toast } = useToast();
   const { user } = useUser();
   const navigate = useNavigate();
@@ -75,15 +79,33 @@ const PhishNotApp = () => {
                   Scanner
                 </button>
                 {user && (
-                  <button 
-                    onClick={() => setCurrentView('history')}
-                    className={`transition-colors font-medium ${
-                      currentView === 'history' ? 'text-primary' : 'text-foreground hover:text-primary'
-                    }`}
-                  >
-                    <History className="w-4 h-4 mr-1 inline" />
-                    History
-                  </button>
+                  <>
+                    <button 
+                      onClick={() => setCurrentView('history')}
+                      className={`transition-colors font-medium ${
+                        currentView === 'history' ? 'text-primary' : 'text-foreground hover:text-primary'
+                      }`}
+                    >
+                      <History className="w-4 h-4 mr-1 inline" />
+                      History
+                    </button>
+                    <button 
+                      onClick={() => setCurrentView('dashboard')}
+                      className={`transition-colors font-medium ${
+                        currentView === 'dashboard' ? 'text-primary' : 'text-foreground hover:text-primary'
+                      }`}
+                    >
+                      Dashboard
+                    </button>
+                    <button 
+                      onClick={() => setCurrentView('advanced-analytics')}
+                      className={`transition-colors font-medium ${
+                        currentView === 'advanced-analytics' ? 'text-primary' : 'text-foreground hover:text-primary'
+                      }`}
+                    >
+                      Analytics
+                    </button>
+                  </>
                 )}
                 <button 
                   onClick={() => {
@@ -197,16 +219,36 @@ const PhishNotApp = () => {
                     Scanner
                   </button>
                   {user && (
-                    <button 
-                      onClick={() => {
-                        setCurrentView('history');
-                        setIsMobileMenuOpen(false);
-                      }}
-                      className="text-foreground hover:text-primary transition-colors font-medium text-left flex items-center gap-2"
-                    >
-                      <History className="w-4 h-4" />
-                      History
-                    </button>
+                    <>
+                      <button 
+                        onClick={() => {
+                          setCurrentView('history');
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="text-foreground hover:text-primary transition-colors font-medium text-left flex items-center gap-2"
+                      >
+                        <History className="w-4 h-4" />
+                        History
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setCurrentView('dashboard');
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="text-foreground hover:text-primary transition-colors font-medium text-left"
+                      >
+                        Dashboard
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setCurrentView('advanced-analytics');
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="text-foreground hover:text-primary transition-colors font-medium text-left"
+                      >
+                        Analytics
+                      </button>
+                    </>
                   )}
                   <button 
                     onClick={() => {
@@ -515,7 +557,31 @@ const PhishNotApp = () => {
       )}
       
       {/* Analysis History View */}
-      {currentView === 'history' && user && <AnalysisHistory />}
+      {currentView === 'history' && user && (
+        <div className="container mx-auto px-4 py-8">
+          <AnalysisHistory />
+        </div>
+      )}
+
+      {/* Dashboard View */}
+      {currentView === 'dashboard' && user && (
+        <div className="container mx-auto px-4 py-8">
+          <Dashboard clerkUserId={user.id} />
+        </div>
+      )}
+
+      {/* Advanced Analytics View */}
+      {currentView === 'advanced-analytics' && user && (
+        <div className="container mx-auto px-4 py-8">
+          <AdvancedAnalyticsDashboard clerkUserId={user.id} />
+        </div>
+      )}
+
+      {/* AI Chat Assistant */}
+      <AIChatAssistant 
+        isOpen={isChatOpen} 
+        onToggle={() => setIsChatOpen(!isChatOpen)} 
+      />
 
       {/* Footer */}
       <footer id="contact" className="border-t border-border/40 py-12 px-4">
