@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Upload, AlertTriangle, CheckCircle, FileText, User, Shield, Zap, Eye, X, Download, Share2 } from "lucide-react";
 import { useUser, UserButton } from "@clerk/clerk-react";
@@ -36,9 +36,32 @@ export const ResponsiveScanner = () => {
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [currentStep, setCurrentStep] = useState(1);
   const [isDragOver, setIsDragOver] = useState(false);
+  const [backendStatus, setBackendStatus] = useState<{ connected: boolean; modelsLoaded: boolean } | null>(null);
   const { toast } = useToast();
   const { user } = useUser();
   const navigate = useNavigate();
+
+  // Check backend connection on component mount
+  useEffect(() => {
+    checkBackendConnection();
+  }, []);
+
+  const checkBackendConnection = async () => {
+    try {
+      const response = await fetch('http://127.0.0.1:8000/health');
+      if (response.ok) {
+        const data = await response.json();
+        setBackendStatus({
+          connected: true,
+          modelsLoaded: data.model_loaded && data.vectorizer_loaded
+        });
+      } else {
+        setBackendStatus({ connected: false, modelsLoaded: false });
+      }
+    } catch (error) {
+      setBackendStatus({ connected: false, modelsLoaded: false });
+    }
+  };
 
   const processFile = async (selectedFile: File) => {
     const validation = validateFile(selectedFile);
@@ -139,6 +162,49 @@ export const ResponsiveScanner = () => {
       return;
     }
 
+    // Check backend connection before scanning
+    if (!backendStatus?.connected) {
+      toast({
+        variant: "destructive",
+        title: "Backend Not Connected",
+        description: "Cannot connect to ML backend. Please ensure the FastAPI server is running on http://127.0.0.1:8000",
+      });
+      await checkBackendConnection();
+      return;
+    }
+
+    if (!backendStatus?.modelsLoaded) {
+      // Try to get more details from the backend
+      try {
+        const healthResponse = await fetch('http://127.0.0.1:8000/health');
+        if (healthResponse.ok) {
+          const healthData = await healthResponse.json();
+          const errorMsg = healthData.error || 'Model files not found';
+          const expectedPath = healthData.model_files_expected_at || 'backend directory';
+          
+          toast({
+            variant: "destructive",
+            title: "ML Models Not Loaded",
+            description: `Backend is running but models are not loaded. ${errorMsg}. Please place phish_model.pkl and vectorizer.pkl in: ${expectedPath}`,
+          });
+        } else {
+          toast({
+            variant: "destructive",
+            title: "ML Models Not Loaded",
+            description: "Backend is running but ML models are not loaded. Please check backend logs and ensure model files are present in the backend directory.",
+          });
+        }
+      } catch (e) {
+        toast({
+          variant: "destructive",
+          title: "ML Models Not Loaded",
+          description: "Backend is running but ML models are not loaded. Please check backend logs and ensure model files are present in the backend directory.",
+        });
+      }
+      await checkBackendConnection();
+      return;
+    }
+
     if (!validateInputs()) {
       toast({
         variant: "destructive",
@@ -189,61 +255,124 @@ export const ResponsiveScanner = () => {
         }
       }
 
-      // Extract links from email content
-      const linkRegex = /https?:\/\/[^\s<>"]+/gi;
-      const links = emailContent.match(linkRegex) || [];
+      // Combine email components into a single text string for ML model
+      // The ML model expects the full email text as input
+      const fullEmailText = [
+        senderInfo ? `From: ${senderInfo}` : '',
+        subjectInfo ? `Subject: ${subjectInfo}` : '',
+        emailContent
+      ].filter(Boolean).join('\n\n');
 
-      const response = await supabase.functions.invoke('detect', {
-        body: {
-          email_text: emailContent,
-          sender: senderInfo,
-          subject: subjectInfo,
-          links: links,
-          clerk_user_id: user?.id
-        }
-      });
-
-      if (response.error) {
-        console.error('Detection API error:', response.error);
-        throw new Error('Analysis failed');
+      // Call FastAPI backend ML model
+      let response: Response;
+      try {
+        response = await fetch('http://127.0.0.1:8000/predict', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email: fullEmailText
+          })
+        });
+      } catch (fetchError: any) {
+        // Network error - backend might not be running
+        console.error('Failed to connect to backend:', fetchError);
+        throw new Error(
+          'Cannot connect to ML backend. Please ensure the FastAPI server is running on http://127.0.0.1:8000'
+        );
       }
 
-      const result = response.data;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
+        console.error('Detection API error:', errorData);
+        
+        if (response.status === 503) {
+          throw new Error('ML models not loaded. Please check backend logs and ensure model files are present.');
+        } else if (response.status === 400) {
+          throw new Error(errorData.detail || 'Invalid request');
+        } else {
+          throw new Error(errorData.detail || 'Analysis failed');
+        }
+      }
+
+      const result = await response.json();
+      
+      // Map ML model response to ScanResult format
+      const confidencePercent = Math.round(result.confidence * 100);
+      const isPhishing = result.phishing;
+      
+      // Generate reasons and risk level based on confidence
+      const reasons: string[] = [];
+      if (isPhishing) {
+        reasons.push(`ML model detected phishing patterns with ${confidencePercent}% confidence`);
+        reasons.push('Email content matches known phishing characteristics');
+        if (confidencePercent > 80) {
+          reasons.push('High confidence phishing indicators detected');
+        }
+      } else {
+        reasons.push(`Email appears safe with ${confidencePercent}% confidence`);
+        reasons.push('No significant phishing patterns detected');
+      }
+      
+      // Determine risk level based on confidence
+      let riskLevel: 'low' | 'medium' | 'high' = 'low';
+      if (isPhishing) {
+        if (confidencePercent >= 80) {
+          riskLevel = 'high';
+        } else if (confidencePercent >= 50) {
+          riskLevel = 'medium';
+        }
+      }
       
       const scanResult: ScanResult = {
-        isPhishing: result.result === 'phishing',
-        confidence: Math.round(result.confidence * 100),
-        reasons: result.reasons || [],
-        riskLevel: result.risk_level || 'low',
-        detectedPatterns: result.detected_patterns || []
+        isPhishing: isPhishing,
+        confidence: confidencePercent,
+        reasons: reasons,
+        riskLevel: riskLevel,
+        detectedPatterns: isPhishing 
+          ? ['ML-based phishing detection', `Confidence: ${confidencePercent}%`]
+          : ['No phishing patterns detected']
       };
 
       setScanResult(scanResult);
       setCurrentStep(3);
       
+      // Save to history if user is logged in (optional feature)
+      if (user) {
+        try {
+          await saveEmailAnalysis(user.id, {
+            sender: senderInfo,
+            subject: subjectInfo,
+            emailBody: emailContent,
+            isPhishing: isPhishing,
+            confidence: confidencePercent,
+            analysisReasons: reasons
+          });
+        } catch (historyError) {
+          // Non-critical - history save failed but analysis succeeded
+          console.warn('Failed to save to history:', historyError);
+        }
+      }
+      
       toast({
         title: "Analysis Complete",
-        description: "Email analysis saved to your history.",
+        description: `Email classified as ${isPhishing ? 'phishing' : 'safe'} with ${confidencePercent}% confidence.`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Analysis error:', error);
-      // Fallback analysis
-      const fallbackResult: ScanResult = {
-        isPhishing: false,
-        confidence: 10,
-        reasons: ['Analysis service temporarily unavailable - using basic checks'],
-        riskLevel: 'low',
-        detectedPatterns: ['service_unavailable']
-      };
       
-      setScanResult(fallbackResult);
-      setCurrentStep(3);
+      // Show error message without fake results
+      const errorMessage = error?.message || 'Failed to analyze email. Please check backend connection and try again.';
       
       toast({
         variant: "destructive",
-        title: "Analysis Service Error",
-        description: "Using basic analysis. Please try again later for full AI analysis.",
+        title: "Analysis Failed",
+        description: errorMessage,
       });
+      
+      // Reset to input step so user can try again
+      setCurrentStep(1);
     }
     
     setIsScanning(false);
@@ -415,6 +544,22 @@ export const ResponsiveScanner = () => {
                   <CardDescription className="text-lg text-muted-foreground">
                     Enter email details or upload a file for advanced threat analysis
                   </CardDescription>
+                  {backendStatus && (
+                    <div className="mt-4 flex items-center justify-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${
+                        backendStatus.connected && backendStatus.modelsLoaded 
+                          ? 'bg-green-500 animate-pulse' 
+                          : 'bg-red-500'
+                      }`} />
+                      <span className="text-sm text-muted-foreground">
+                        {backendStatus.connected && backendStatus.modelsLoaded 
+                          ? 'ML Backend Connected' 
+                          : backendStatus.connected 
+                          ? 'Backend Connected (Models Not Loaded)'
+                          : 'Backend Not Connected'}
+                      </span>
+                    </div>
+                  )}
                 </CardHeader>
                 
                 <CardContent className="space-y-6">
@@ -652,7 +797,7 @@ export const ResponsiveScanner = () => {
                   <CardTitle className={`text-3xl font-bold ${
                     scanResult.isPhishing ? 'text-destructive' : 'text-success'
                   }`}>
-                    {scanResult.isPhishing ? 'Threat Detected!' : 'Email Verified Safe'}
+                    {scanResult.isPhishing ? 'Phishing Detected' : 'Looks Safe'}
                   </CardTitle>
                   <CardDescription className="text-lg space-y-2">
                     <Badge 

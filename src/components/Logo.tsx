@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Shield } from 'lucide-react';
 
-const logoOriginal = '/lovable-uploads/5d176f06-bac6-4e57-ad95-5f3fc22bbddc.png';
+const logoOriginal = '/lovable-uploads/5d176f06-bac6-4e57-ad95-5f3fc22bbddc.png'; // Image path preserved for existing assets
 
 interface LogoProps {
   className?: string;

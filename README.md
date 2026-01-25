@@ -1,148 +1,186 @@
-# 🛡️ PhishNot — ML‑Powered Phishing Email Detector
+# 🛡️ PhishNot — ML-Powered Phishing Email Detector
 
-PhishNot is an end‑to‑end phishing email detection system that uses **machine learning and NLP** to classify emails as **phishing or legitimate** with high accuracy. The project demonstrates a complete real‑world ML pipeline — from data preprocessing and model training to backend deployment and frontend integration.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://www.python.org/)
+[![React](https://img.shields.io/badge/React-18.3+-61DAFB.svg)](https://reactjs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com/)
 
-This project was built with a **security‑first mindset**, focusing on how phishing attacks are detected in practical cybersecurity systems.
+PhishNot is an end-to-end phishing email detection system that uses **machine learning and NLP** to classify emails as **phishing or legitimate** with high accuracy. The project demonstrates a complete real-world ML pipeline — from data preprocessing and model training to backend deployment and frontend integration.
 
----
-
-## 🚀 Project Highlights
-
-* 🔍 **ML‑based phishing detection** (not rule‑based)
-* 🧠 Trained on a real phishing email dataset
-* ⚙️ FastAPI backend exposing a REST API
-* 🎨 Frontend integration (Lovable)
-* 📊 Returns confidence score with predictions
-* 💼 Resume‑ready, industry‑style architecture
+**Live Demo**: [phishnot.vercel.app](https://phishnot.vercel.app)
 
 ---
 
-## 🧠 How PhishNot Works
+## ✨ Features
 
-1. **Email text input** is provided by the user via the frontend.
-2. The text is sent to a **FastAPI backend** through a POST request.
-3. The backend:
-
-   * Vectorizes the text using **TF‑IDF**
-   * Runs it through a trained **Logistic Regression model**
-4. The API returns:
-
-   * Whether the email is phishing or safe
-   * A confidence score
-5. The frontend displays the result in real time.
+- 🔍 **ML-based phishing detection** using TF-IDF + Logistic Regression
+- 🧠 **Trained model** with 91.67% accuracy on test set
+- ⚙️ **FastAPI backend** with RESTful API endpoints
+- 🎨 **Modern React frontend** with TypeScript and Tailwind CSS
+- 📊 **Confidence scores** for each prediction
+- 🔐 **Real-time backend status** monitoring
+- 📁 **File upload support** (.eml, .txt, .msg)
+- 📈 **Risk level assessment** (high/medium/low)
+- 🎯 **Production-ready** architecture
 
 ---
 
-## 🧱 System Architecture
+## 🏗️ Tech Stack
 
+### Backend
+- **FastAPI** - Modern Python web framework
+- **scikit-learn** - Machine learning library
+- **joblib** - Model serialization
+- **TF-IDF** - Text vectorization
+- **Logistic Regression** - Classification model
+
+### Frontend
+- **React 18** - UI library
+- **TypeScript** - Type safety
+- **Vite** - Build tool
+- **Tailwind CSS** - Styling
+- **shadcn/ui** - UI components
+- **Framer Motion** - Animations
+
+### Infrastructure
+- **Supabase** - Database and storage (optional features)
+- **Clerk** - Authentication
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.8+
+- Node.js 18+
+- pip and npm
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/nayan2723/phishnot.git
+cd phishnot
 ```
-Frontend (Lovable)
-        ↓ POST /predict
-FastAPI Backend
-        ↓
-ML Model (TF‑IDF + Logistic Regression)
+
+### 2. Train the ML Model
+
+```bash
+cd backend
+python -m venv venv
+venv\Scripts\activate  # Windows
+# or: source venv/bin/activate  # Linux/Mac
+
+pip install -r requirements.txt
+python train_model.py
 ```
 
-This separation ensures scalability, maintainability, and real‑world usability.
+This will:
+- Create a sample dataset (or use your own CSV)
+- Train the TF-IDF + Logistic Regression model
+- Save `phish_model.pkl` and `vectorizer.pkl` to the backend directory
+
+### 3. Start the Backend
+
+```bash
+cd backend
+uvicorn main:app --reload
+```
+
+The API will be available at `http://127.0.0.1:8000`
+
+### 4. Start the Frontend
+
+In a new terminal:
+
+```bash
+npm install
+npm run dev
+```
+
+The frontend will be available at `http://localhost:8080`
+
+### 5. Use the Application
+
+1. Open `http://localhost:8080` in your browser
+2. Enter email details (sender, subject, body) or upload a file
+3. Click "Start AI Analysis"
+4. View results with confidence percentage
 
 ---
 
-## 📁 Repository Structure
+## 📁 Project Structure
 
 ```
 phishnot/
 ├── backend/
-│   ├── main.py              # FastAPI backend
-│   ├── phish_model.pkl      # Trained ML model
-│   ├── vectorizer.pkl       # TF‑IDF vectorizer
-│   └── requirements.txt     # Python dependencies
-├── notebooks/
-│   └── training.ipynb       # Model training notebook
-├── dataset/
-│   └── phishing_email.csv   # Training data
-├── frontend/                # (optional) sample frontend
-├── README.md
+│   ├── main.py                 # FastAPI application
+│   ├── train_model.py          # ML model training script
+│   ├── check_model_files.py   # Model file verification
+│   ├── phish_model.pkl        # Trained ML model (generated)
+│   ├── vectorizer.pkl         # TF-IDF vectorizer (generated)
+│   ├── requirements.txt       # Python dependencies
+│   └── TRAINING_GUIDE.md     # Training documentation
+├── src/
+│   ├── components/
+│   │   ├── ResponsiveScanner.tsx  # Main scanner component
+│   │   ├── Dashboard.tsx          # Analytics dashboard
+│   │   └── ui/                    # UI components
+│   ├── pages/                     # Page components
+│   ├── utils/                     # Utility functions
+│   └── integrations/              # External integrations
+├── public/                        # Static assets
+├── supabase/                      # Supabase functions (optional)
+├── package.json                   # Frontend dependencies
+└── README.md                      # This file
 ```
 
 ---
 
-## 🧪 Model Details
+## 🧠 Model Details
 
-* **Algorithm:** Logistic Regression
-* **Text Vectorization:** TF‑IDF (unigrams + bigrams)
-* **Max Features:** 8000
-* **Evaluation Metrics:** Accuracy, Precision, Recall, F1‑Score
+### Architecture
+- **Algorithm**: Logistic Regression
+- **Vectorization**: TF-IDF (unigrams + bigrams)
+- **Max Features**: 8000
+- **Class Weight**: Balanced
 
-### 📈 Performance
+### Performance
+- **Test Accuracy**: 91.67%
+- **Test Precision**: 85.71%
+- **Test Recall**: 100.00%
+- **Test F1-Score**: 92.31%
 
-The trained model achieves:
+*Note: Performance based on sample dataset. Use a larger dataset for production (1000+ emails per class) to achieve 95-98% accuracy.*
 
-* **Accuracy:** ~98%
-* **Precision:** ~98%
-* **Recall:** ~98%
-* **F1‑Score:** ~98%
+### Training Your Own Model
 
-This indicates strong generalization and robustness against unseen phishing emails.
+```bash
+cd backend
+python train_model.py path/to/your/dataset.csv
+```
+
+**Dataset Format:**
+- Column `email` or `text`: Email content
+- Column `label` or `phishing`: 1 for phishing, 0 for legitimate
 
 ---
 
-## ⚙️ Backend Setup (FastAPI)
+## 📡 API Documentation
 
-### 1️⃣ Clone the repository
+### Endpoints
 
-```bash
-git clone https://github.com/nayan2723/phishnot.git
-cd phishnot/backend
-```
+#### `POST /predict`
+Predict if an email is phishing.
 
-### 2️⃣ Create a virtual environment
-
-```bash
-python -m venv venv
-venv\Scripts\activate   # Windows
-source venv/bin/activate # Linux / Mac
-```
-
-### 3️⃣ Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4️⃣ Run the API server
-
-```bash
-uvicorn main:app --reload
-```
-
-### 5️⃣ API Documentation
-
-Open in browser:
-
-```
-http://127.0.0.1:8000/docs
-```
-
----
-
-## 📡 API Usage
-
-### Endpoint
-
-```
-POST /predict
-```
-
-### Request Body
-
+**Request:**
 ```json
 {
   "email": "Urgent! Your account has been compromised. Click here."
 }
 ```
 
-### Response
-
+**Response:**
 ```json
 {
   "phishing": true,
@@ -150,73 +188,161 @@ POST /predict
 }
 ```
 
----
+#### `GET /health`
+Check backend and model status.
 
-## 🎨 Frontend Integration (Lovable)
-
-* Method: **POST**
-* URL:
-
-  ```
-  http://127.0.0.1:8000/predict
-  ```
-* Headers:
-
-  ```json
-  { "Content-Type": "application/json" }
-  ```
-* Body:
-
-  ```json
-  { "email": "<user_input_text>" }
-  ```
-
-The frontend parses the response and displays a phishing warning or safe confirmation with confidence score.
-
----
-
-## 🔐 CORS Configuration
-
-To allow frontend communication, CORS is enabled in FastAPI:
-
-```python
-from fastapi.middleware.cors import CORSMiddleware
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+**Response:**
+```json
+{
+  "status": "healthy",
+  "model_loaded": true,
+  "vectorizer_loaded": true
+}
 ```
 
----
+#### `GET /`
+Root endpoint with API information.
 
-## 🧠 Future Enhancements
+### Interactive API Docs
 
-* Upgrade to transformer‑based models (BERT / RoBERTa)
-* Email header analysis (SPF, DKIM, sender reputation)
-* Browser extension integration
-* Cloud deployment (Render / Railway)
-* Explainable AI (feature importance / SHAP)
-* User scan history and analytics dashboard
+Once the backend is running, visit:
+- **Swagger UI**: `http://127.0.0.1:8000/docs`
+- **ReDoc**: `http://127.0.0.1:8000/redoc`
 
 ---
 
-## 🎯 Why This Project Matters
+## 🧪 Testing
 
-PhishNot demonstrates:
+### Test the Backend
 
-* Practical application of **machine learning in cybersecurity**
-* Understanding of **ML deployment**, not just training
-* Backend‑frontend integration skills
-* Real‑world problem solving
+```bash
+# Health check
+curl http://127.0.0.1:8000/health
 
-This makes it suitable for **internships, research work, and security‑focused roles**.
+# Test prediction
+curl -X POST http://127.0.0.1:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"email":"Urgent! Verify your account now!"}'
+```
+
+### Test the Frontend
+
+1. Start both backend and frontend
+2. Open `http://localhost:8080`
+3. Test with:
+   - **Phishing email**: "Urgent! Your account has been compromised. Click here: http://suspicious-link.com"
+   - **Safe email**: "Thank you for your subscription. Here are this month's updates."
 
 ---
 
-## 📜 License
+## 🔧 Configuration
 
-This project is licensed under the **MIT License** — feel free to use, modify, and extend it.
+### Backend Configuration
+
+The backend automatically loads models from:
+- `backend/phish_model.pkl`
+- `backend/vectorizer.pkl`
+
+### Frontend Configuration
+
+The frontend connects to the backend at:
+- `http://127.0.0.1:8000` (development)
+- Update for production deployment
+
+### Environment Variables
+
+Create a `.env` file for:
+- Supabase credentials (optional)
+- Clerk authentication keys (optional)
+
+---
+
+## 🐛 Troubleshooting
+
+### Backend Issues
+
+**Models not loading:**
+- Verify `phish_model.pkl` and `vectorizer.pkl` exist in `backend/` directory
+- Check file names are exactly correct (case-sensitive)
+- Run `python backend/check_model_files.py` to verify
+
+**Import errors:**
+- Ensure virtual environment is activated
+- Run `pip install -r backend/requirements.txt`
+
+### Frontend Issues
+
+**Backend connection failed:**
+- Verify backend is running on `http://127.0.0.1:8000`
+- Check browser console for CORS errors
+- Verify backend health: `http://127.0.0.1:8000/health`
+
+**Build errors:**
+- Run `npm install` to install dependencies
+- Check Node.js version: `node --version` (should be 18+)
+
+---
+
+## 📚 Documentation
+
+- **[Training Guide](backend/TRAINING_GUIDE.md)** - How to train the ML model
+- **[Complete Setup](COMPLETE_SETUP.md)** - Detailed setup instructions
+- **[System Overview](SYSTEM_COMPLETE.md)** - System architecture and components
+- **[Technical Audit](TECHNICAL_AUDIT_REPORT.md)** - Code quality and integration details
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
+
+---
+
+## 📝 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 👤 Author
+
+**Nayan**
+
+- GitHub: [@nayan2723](https://github.com/nayan2723)
+- Project Link: [https://github.com/nayan2723/phishnot](https://github.com/nayan2723/phishnot)
+
+---
+
+## 🙏 Acknowledgments
+
+- Built with [FastAPI](https://fastapi.tiangolo.com/)
+- UI components from [shadcn/ui](https://ui.shadcn.com/)
+- Icons from [Lucide](https://lucide.dev/)
+
+---
+
+## 🎯 Future Enhancements
+
+- [ ] Upgrade to transformer-based models (BERT/RoBERTa)
+- [ ] Email header analysis (SPF, DKIM, sender reputation)
+- [ ] Browser extension integration
+- [ ] Cloud deployment (AWS/GCP/Azure)
+- [ ] Explainable AI (feature importance/SHAP)
+- [ ] Real-time email scanning
+- [ ] Multi-language support
+
+---
+
+## ⭐ Show Your Support
+
+If you find this project useful, please give it a ⭐ on GitHub!
+
+---
+
+**Made with ❤️ for cybersecurity**

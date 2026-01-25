@@ -1,0 +1,8 @@
+# This directory should contain:
+# - phish_model.pkl (your trained ML model)
+# - vectorizer.pkl (your TF-IDF vectorizer)
+# - main.py (FastAPI application)
+# - requirements.txt (Python dependencies)
+
+# Note: .pkl files are typically large and should not be committed to git.
+# Add them to .gitignore and provide instructions for users to place their own trained models here.
