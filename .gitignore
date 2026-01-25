@@ -27,3 +27,14 @@ dist-ssr
 *.pkl
 backend/phish_model.pkl
 backend/vectorizer.pkl
+
+# Python virtual environments
+backend/venv/
+backend/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.egg-info/
+dist/
+build/
