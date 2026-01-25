@@ -18,10 +18,6 @@ FastAPI backend for the PhishNot phishing detection system.
    uvicorn main:app --reload
    ```
 
-4. **Access API docs:**
-   - Swagger UI: http://127.0.0.1:8000/docs
-   - ReDoc: http://127.0.0.1:8000/redoc
-
 ## API Endpoints
 
 ### POST /predict
@@ -64,3 +60,7 @@ The backend expects:
 ## Development
 
 The server runs with auto-reload enabled. Changes to `main.py` will automatically restart the server.
+
+
+
+Backend Runs Locally
