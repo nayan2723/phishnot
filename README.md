@@ -18,7 +18,6 @@ PhishNot is an end-to-end phishing email detection system that uses **machine le
 - ⚙️ **FastAPI backend** with RESTful API endpoints
 - 🎨 **Modern React frontend** with TypeScript and Tailwind CSS
 - 📊 **Confidence scores** for each prediction
-- 🔐 **Real-time backend status** monitoring
 - 📁 **File upload support** (.eml, .txt, .msg)
 - 📈 **Risk level assessment** (high/medium/low)
 - 🎯 **Production-ready** architecture
