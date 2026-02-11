@@ -1,0 +1,12 @@
+# Render Blueprint: PhishNot FastAPI backend
+# Root directory must be "backend" so runtime.txt and requirements.txt are found.
+# Python 3.10.13 is required (pandas 2.1.4 compatibility).
+
+services:
+  - type: web
+    name: phishnot-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
