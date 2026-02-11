@@ -83,21 +83,33 @@ This will:
 
 ```bash
 cd backend
-uvicorn main:app --reload
+uvicorn main:app --host 0.0.0.0 --port 10000
 ```
 
-The API will be available at `http://127.0.0.1:8000`
+Or for local development with auto-reload:
+
+```bash
+uvicorn main:app --reload --port 8000
+```
+
+The API will be available at `http://127.0.0.1:10000` (or `http://127.0.0.1:8000` if using reload).
 
 ### 4. Start the Frontend
 
-In a new terminal:
+In a new terminal (from project root):
 
 ```bash
 npm install
 npm run dev
 ```
 
-The frontend will be available at `http://localhost:8080`
+The frontend will be available at `http://localhost:8080`.
+
+If the backend runs on a different port (e.g. 8000), create a `.env` file with:
+
+```
+VITE_API_URL=http://127.0.0.1:8000
+```
 
 ### 5. Use the Application
 
@@ -244,15 +256,35 @@ The backend automatically loads models from:
 
 ### Frontend Configuration
 
-The frontend connects to the backend at:
-- `http://127.0.0.1:8000` (development)
-- Update for production deployment
+The frontend uses `VITE_API_URL` for the backend (default: `http://127.0.0.1:8000`). Copy `.env.example` to `.env` and set `VITE_API_URL` to your Render backend URL for production.
 
 ### Environment Variables
 
-Create a `.env` file for:
+- **VITE_API_URL** (optional): Backend API base URL. Default: `http://127.0.0.1:8000`. Set to your Render backend URL when deploying frontend to Vercel.
 - Supabase credentials (optional)
 - Clerk authentication keys (optional)
+
+---
+
+## Deploying
+
+### Backend on Render
+
+1. Create a **Web Service** on [Render](https://render.com).
+2. Connect your repo; set **Root Directory** to `backend` (or deploy from a repo that contains only the backend).
+3. **Build Command**: `pip install -r requirements.txt`
+4. **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`  
+   (Render sets `PORT`; use `10000` if you prefer: `--port 10000` only if Render allows fixed port.)
+5. **Python Version**: Ensure `backend/runtime.txt` contains `python-3.10.13`.
+6. Ensure `phish_model.pkl` and `vectorizer.pkl` are in the backend directory (train with `python train_model.py` and commit the files, or add them in a build step).
+7. After deploy, note the backend URL (e.g. `https://phishnot-api.onrender.com`).
+
+### Frontend on Vercel
+
+1. Import the project in [Vercel](https://vercel.com).
+2. Set **Environment Variable**: `VITE_API_URL` = your Render backend URL (e.g. `https://phishnot-api.onrender.com`).
+3. Build command: `npm run build`; output directory: `dist`.
+4. Deploy. The frontend will call your Render backend for `/health` and `/predict`.
 
 ---
 

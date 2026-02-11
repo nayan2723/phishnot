@@ -23,11 +23,6 @@ dist-ssr
 *.sln
 *.sw?
 
-# ML Model files (large binary files)
-*.pkl
-backend/phish_model.pkl
-backend/vectorizer.pkl
-
 # Python virtual environments
 backend/venv/
 backend/__pycache__/

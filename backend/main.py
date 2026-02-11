@@ -8,8 +8,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 import joblib
-import os
-import sys
 from pathlib import Path
 
 # Global variables for model and vectorizer
@@ -141,23 +139,18 @@ class PredictionResponse(BaseModel):
 async def root():
     """Root endpoint for health check."""
     global model_load_error
-    backend_dir = Path(__file__).parent.resolve()
     
     response = {
         "message": "PhishNot API is running",
         "status": "healthy",
         "model_loaded": model is not None,
         "vectorizer_loaded": vectorizer is not None,
-        "backend_directory": str(backend_dir),
-        "model_path": str(backend_dir / "phish_model.pkl"),
-        "vectorizer_path": str(backend_dir / "vectorizer.pkl"),
     }
     
     if model_load_error:
         response["error"] = model_load_error
         response["instructions"] = (
-            "Please place phish_model.pkl and vectorizer.pkl in the backend directory. "
-            f"Expected location: {backend_dir}"
+            "Please place phish_model.pkl and vectorizer.pkl in the backend directory."
         )
     
     return response
@@ -166,7 +159,6 @@ async def root():
 async def health():
     """Health check endpoint."""
     global model_load_error
-    backend_dir = Path(__file__).parent.resolve()
     
     response = {
         "status": "healthy",
@@ -176,7 +168,6 @@ async def health():
     
     if model_load_error:
         response["error"] = model_load_error
-        response["model_files_expected_at"] = str(backend_dir)
     
     return response
 
@@ -192,15 +183,12 @@ async def predict(request: EmailRequest):
         PredictionResponse with phishing boolean and confidence score
     """
     global model_load_error
-    backend_dir = Path(__file__).parent.resolve()
     
     if model is None or vectorizer is None:
         error_detail = "ML models not loaded."
         if model_load_error:
             error_detail += f" Error: {model_load_error}"
-        error_detail += (
-            f" Please ensure phish_model.pkl and vectorizer.pkl are in: {backend_dir}"
-        )
+        error_detail += " Please ensure phish_model.pkl and vectorizer.pkl are in the backend directory."
         raise HTTPException(
             status_code=503,
             detail=error_detail

@@ -15,6 +15,7 @@ import {
   saveEmailAnalysis, 
   readFileContent
 } from "@/utils/database";
+import { api } from "@/lib/api";
 import { supabase } from "@/integrations/supabase/client";
 import { FeedbackSystem } from "@/components/FeedbackSystem";
 
@@ -48,7 +49,7 @@ export const ResponsiveScanner = () => {
 
   const checkBackendConnection = async () => {
     try {
-      const response = await fetch('http://127.0.0.1:8000/health');
+      const response = await fetch(api.health());
       if (response.ok) {
         const data = await response.json();
         setBackendStatus({
@@ -167,25 +168,22 @@ export const ResponsiveScanner = () => {
       toast({
         variant: "destructive",
         title: "Backend Not Connected",
-        description: "Cannot connect to ML backend. Please ensure the FastAPI server is running on http://127.0.0.1:8000",
+        description: "Cannot connect to ML backend. Please ensure the FastAPI server is running.",
       });
       await checkBackendConnection();
       return;
     }
 
     if (!backendStatus?.modelsLoaded) {
-      // Try to get more details from the backend
       try {
-        const healthResponse = await fetch('http://127.0.0.1:8000/health');
+        const healthResponse = await fetch(api.health());
         if (healthResponse.ok) {
           const healthData = await healthResponse.json();
-          const errorMsg = healthData.error || 'Model files not found';
-          const expectedPath = healthData.model_files_expected_at || 'backend directory';
-          
+          const errorMsg = healthData.error || "Model files not found";
           toast({
             variant: "destructive",
             title: "ML Models Not Loaded",
-            description: `Backend is running but models are not loaded. ${errorMsg}. Please place phish_model.pkl and vectorizer.pkl in: ${expectedPath}`,
+            description: `Backend is running but models are not loaded. ${errorMsg}. Please place phish_model.pkl and vectorizer.pkl in the backend directory.`,
           });
         } else {
           toast({
@@ -266,20 +264,17 @@ export const ResponsiveScanner = () => {
       // Call FastAPI backend ML model
       let response: Response;
       try {
-        response = await fetch('http://127.0.0.1:8000/predict', {
-          method: 'POST',
+        response = await fetch(api.predict(), {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            email: fullEmailText
-          })
+          body: JSON.stringify({ email: fullEmailText }),
         });
-      } catch (fetchError: any) {
-        // Network error - backend might not be running
-        console.error('Failed to connect to backend:', fetchError);
+      } catch (fetchError: unknown) {
+        console.error("Failed to connect to backend:", fetchError);
         throw new Error(
-          'Cannot connect to ML backend. Please ensure the FastAPI server is running on http://127.0.0.1:8000'
+          "Cannot connect to ML backend. Please ensure the FastAPI server is running."
         );
       }
 
