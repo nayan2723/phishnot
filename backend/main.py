@@ -200,9 +200,23 @@ async def predict(request: EmailRequest):
             detail="Email text cannot be empty"
         )
     
+def preprocess_text(text):
+    """Basic text preprocessing to match training data."""
+    if not text:
+        return ""
+    text = str(text)
+    # Convert to lowercase
+    text = text.lower()
+    # Remove extra whitespace
+    text = ' '.join(text.split())
+    return text
+
     try:
+        # Preprocess the email text identically to the training pipeline
+        cleaned_text = preprocess_text(request.email)
+        
         # Vectorize the email text
-        email_vectorized = vectorizer.transform([request.email])
+        email_vectorized = vectorizer.transform([cleaned_text])
         
         # Make prediction
         prediction = model.predict(email_vectorized)[0]

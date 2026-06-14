@@ -273,19 +273,28 @@ def train_model(dataset_path=None):
     print(f"\nYou can now start the backend server:")
     print(f"  uvicorn main:app --reload")
     
-    return model, vectorizer, {
-        'train_accuracy': train_accuracy,
-        'test_accuracy': test_accuracy,
-        'test_precision': test_precision,
-        'test_recall': test_recall,
-        'test_f1': test_f1
+    # Save metrics to JSON
+    metrics_dict = {
+        'accuracy': test_accuracy,
+        'precision': test_precision,
+        'recall': test_recall,
+        'f1': test_f1,
+        'dataset_size': len(df),
+        'trained_at': pd.Timestamp.now().isoformat()
     }
+    import json
+    metrics_path = backend_dir / "model_metrics.json"
+    with open(metrics_path, "w") as f:
+        json.dump(metrics_dict, f, indent=2)
+    print(f"[OK] Metrics saved to {metrics_path}")
+    
+    return model, vectorizer, metrics_dict
 
 if __name__ == "__main__":
     import sys
     
     # Check if dataset path provided as argument
-    dataset_path = sys.argv[1] if len(sys.argv) > 1 else None
+    dataset_path = sys.argv[1] if len(sys.argv) > 1 else 'backend/data/phishing_emails.csv'
     
     if dataset_path:
         print(f"Using dataset from: {dataset_path}")
@@ -296,8 +305,8 @@ if __name__ == "__main__":
     try:
         model, vectorizer, metrics = train_model(dataset_path)
         print(f"\n[OK] Model trained successfully!")
-        print(f"  Test Accuracy: {metrics['test_accuracy']*100:.2f}%")
-        print(f"  Test F1-Score: {metrics['test_f1']*100:.2f}%")
+        print(f"  Test Accuracy: {metrics['accuracy']*100:.2f}%")
+        print(f"  Test F1-Score: {metrics['f1']*100:.2f}%")
     except Exception as e:
         print(f"\n[ERROR] Error during training: {e}")
         import traceback

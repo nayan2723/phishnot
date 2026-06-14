@@ -53,7 +53,8 @@ export const validateFile = (file: File) => {
   };
 };
 
-// Enhanced XSS protection and input sanitization
+// Basic input hygiene (truncation and control char stripping).
+// Does NOT HTML-escape, to preserve phishing signals (URLs, scripts) for the ML model.
 export const sanitizeText = (text: string): string => {
   if (!text || typeof text !== 'string') return '';
   
@@ -61,24 +62,8 @@ export const sanitizeText = (text: string): string => {
   const maxLength = 10000;
   const truncated = text.length > maxLength ? text.substring(0, maxLength) : text;
   
-  return truncated
-    // HTML entity encoding for basic characters
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;')
-    // Remove dangerous protocols
-    .replace(/javascript:/gi, '')
-    .replace(/data:/gi, '')
-    .replace(/vbscript:/gi, '')
-    // Remove event handlers
-    .replace(/on\w+\s*=/gi, '')
-    // Remove potentially dangerous HTML tags
-    .replace(/<(script|iframe|object|embed|form|input|meta|link)[^>]*>/gi, '')
-    // Clean up whitespace
-    .trim();
+  // Strip control characters (\x00-\x1F except \n, \r, \t) to prevent log injection
+  return truncated.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '').trim();
 };
 
 // Sanitize HTML content more thoroughly

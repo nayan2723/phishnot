@@ -532,8 +532,8 @@ const PhishNotApp = () => {
                 className="grid grid-cols-2 md:grid-cols-4 gap-6"
               >
                 {[
-                  { value: "99.9%", label: "Detection Accuracy", color: "text-primary" },
-                  { value: "850K+", label: "Threats Blocked", color: "text-success" },
+                  { value: "96.2%", label: "Validation Accuracy", color: "text-primary" },
+                  { value: "18,631", label: "Emails in Training Dataset", color: "text-success" },
                   { value: "<1s", label: "Analysis Time", color: "text-info" },
                   { value: "24/7", label: "Protection", color: "text-warning" }
                 ].map((stat, index) => (
