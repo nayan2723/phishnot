@@ -9,6 +9,8 @@ from pydantic import BaseModel
 from contextlib import asynccontextmanager
 import joblib
 from pathlib import Path
+import re
+import numpy as np
 
 # Global variables for model and vectorizer
 model = None
@@ -37,7 +39,7 @@ def load_models():
     # Check if model file exists
     if not model_path.exists():
         error_msg = (
-            f"\n❌ MODEL FILE NOT FOUND\n"
+            f"\n[ERROR] MODEL FILE NOT FOUND\n"
             f"   Expected location: {model_path}\n"
             f"   Current working directory: {Path.cwd()}\n"
             f"   Please ensure 'phish_model.pkl' is in the backend directory.\n"
@@ -50,7 +52,7 @@ def load_models():
     # Check if vectorizer file exists
     if not vectorizer_path.exists():
         error_msg = (
-            f"\n❌ VECTORIZER FILE NOT FOUND\n"
+            f"\n[ERROR] VECTORIZER FILE NOT FOUND\n"
             f"   Expected location: {vectorizer_path}\n"
             f"   Current working directory: {Path.cwd()}\n"
             f"   Please ensure 'vectorizer.pkl' is in the backend directory.\n"
@@ -64,21 +66,21 @@ def load_models():
     try:
         print(f"Loading model from: {model_path}")
         model = joblib.load(model_path)
-        print(f"✓ Model loaded successfully")
+        print(f"[OK] Model loaded successfully")
         print(f"  Model type: {type(model).__name__}")
         
         print(f"\nLoading vectorizer from: {vectorizer_path}")
         vectorizer = joblib.load(vectorizer_path)
-        print(f"✓ Vectorizer loaded successfully")
+        print(f"[OK] Vectorizer loaded successfully")
         print(f"  Vectorizer type: {type(vectorizer).__name__}")
         
         print(f"\n{'='*60}")
-        print("✓ All models loaded successfully!")
+        print("[OK] All models loaded successfully!")
         print(f"{'='*60}\n")
         
     except Exception as e:
         error_msg = f"Error loading model files: {str(e)}"
-        print(f"\n❌ ERROR: {error_msg}")
+        print(f"\n[ERROR]: {error_msg}")
         print(f"   This might be due to:")
         print(f"   - Corrupted .pkl files")
         print(f"   - Version mismatch (scikit-learn/joblib)")
@@ -93,11 +95,11 @@ async def lifespan(app: FastAPI):
     try:
         load_models()
     except (FileNotFoundError, RuntimeError) as e:
-        print(f"\n⚠️  WARNING: Models failed to load during startup")
+        print(f"\n[WARNING]: Models failed to load during startup")
         print(f"   The server will start, but /predict endpoint will return 503 errors.")
         print(f"   Error: {str(e)}\n")
     except Exception as e:
-        print(f"\n⚠️  UNEXPECTED ERROR during model loading: {e}")
+        print(f"\n[ERROR] UNEXPECTED ERROR during model loading: {e}")
         import traceback
         traceback.print_exc()
     
@@ -107,7 +109,7 @@ async def lifespan(app: FastAPI):
     global model, vectorizer
     model = None
     vectorizer = None
-    print("\n✓ Models unloaded on shutdown")
+    print("\n[OK] Models unloaded on shutdown")
 
 # Initialize FastAPI app with lifespan
 app = FastAPI(
@@ -131,9 +133,16 @@ class EmailRequest(BaseModel):
     email: str
 
 # Response model
+class IOCs(BaseModel):
+    urls: list[str]
+    emails: list[str]
+    ips: list[str]
+
 class PredictionResponse(BaseModel):
     phishing: bool
     confidence: float
+    iocs: IOCs
+    suspicious_keywords: list[str]
 
 @app.get("/")
 async def root():
@@ -171,6 +180,24 @@ async def health():
     
     return response
 
+def extract_iocs(text: str) -> IOCs:
+    """Extract URLs, Emails, and IPs using regex."""
+    urls = list(set(re.findall(r'https?://[^\s<>"]+|www\.[^\s<>"]+', text)))
+    emails = list(set(re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', text)))
+    ips = list(set(re.findall(r'\b(?:[0-9]{1,3}\.){3}[0-9]{1,3}\b', text)))
+    return IOCs(urls=urls, emails=emails, ips=ips)
+
+def preprocess_text(text):
+    """Basic text preprocessing to match training data."""
+    if not text:
+        return ""
+    text = str(text)
+    # Convert to lowercase
+    text = text.lower()
+    # Remove extra whitespace
+    text = ' '.join(text.split())
+    return text
+
 @app.post("/predict", response_model=PredictionResponse)
 async def predict(request: EmailRequest):
     """
@@ -200,17 +227,6 @@ async def predict(request: EmailRequest):
             detail="Email text cannot be empty"
         )
     
-def preprocess_text(text):
-    """Basic text preprocessing to match training data."""
-    if not text:
-        return ""
-    text = str(text)
-    # Convert to lowercase
-    text = text.lower()
-    # Remove extra whitespace
-    text = ' '.join(text.split())
-    return text
-
     try:
         # Preprocess the email text identically to the training pipeline
         cleaned_text = preprocess_text(request.email)
@@ -234,9 +250,31 @@ def preprocess_text(text):
             confidence = float(probabilities[0])
             is_phishing = False
         
+        iocs = extract_iocs(request.email)
+        
+        # Explainable AI: Extract top contributing keywords
+        suspicious_keywords = []
+        if hasattr(model, 'coef_') and hasattr(vectorizer, 'get_feature_names_out'):
+            feature_names = vectorizer.get_feature_names_out()
+            tfidf_array = email_vectorized.toarray()[0]
+            coefs = model.coef_[0]
+            contributions = tfidf_array * coefs
+            non_zero_indices = tfidf_array.nonzero()[0]
+            
+            if len(non_zero_indices) > 0:
+                active_contributions = contributions[non_zero_indices]
+                # Get indices of top 5 highest positive contributions
+                top_local = np.argsort(active_contributions)[::-1][:5]
+                top_global = non_zero_indices[top_local]
+                suspicious_keywords = [
+                    str(feature_names[i]) for i in top_global if contributions[i] > 0
+                ]
+        
         return PredictionResponse(
             phishing=is_phishing,
-            confidence=confidence
+            confidence=confidence,
+            iocs=iocs,
+            suspicious_keywords=suspicious_keywords
         )
     
     except Exception as e:

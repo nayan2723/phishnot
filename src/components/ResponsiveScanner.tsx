@@ -25,6 +25,12 @@ interface ScanResult {
   reasons: string[];
   riskLevel: 'low' | 'medium' | 'high';
   detectedPatterns: string[];
+  iocs?: {
+    urls: string[];
+    emails: string[];
+    ips: string[];
+  };
+  suspiciousKeywords?: string[];
 }
 
 export const ResponsiveScanner = () => {
@@ -327,7 +333,9 @@ export const ResponsiveScanner = () => {
         riskLevel: riskLevel,
         detectedPatterns: isPhishing 
           ? ['ML-based phishing detection', `Confidence: ${confidencePercent}%`]
-          : ['No phishing patterns detected']
+          : ['No phishing patterns detected'],
+        iocs: result.iocs,
+        suspiciousKeywords: result.suspicious_keywords
       };
 
       setScanResult(scanResult);
@@ -858,7 +866,78 @@ export const ResponsiveScanner = () => {
                         </ul>
                       </div>
                     </div>
+
+                    {/* XAI Suspicious Keywords */}
+                    {scanResult.isPhishing && scanResult.suspiciousKeywords && scanResult.suspiciousKeywords.length > 0 && (
+                      <div className="mt-6 pt-6 border-t border-border/40">
+                        <h4 className="font-medium text-foreground mb-3 flex items-center">
+                          <Zap className="w-4 h-4 mr-2 text-destructive" />
+                          Top Phishing Indicators (XAI)
+                        </h4>
+                        <div className="flex flex-wrap gap-2">
+                          {scanResult.suspiciousKeywords.map((keyword, i) => (
+                            <Badge key={i} variant="destructive" className="bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20">
+                              {keyword}
+                            </Badge>
+                          ))}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          These specific keywords strongly contributed to the ML model classifying this email as a threat.
+                        </p>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Indicators of Compromise UI */}
+                  {scanResult.iocs && (scanResult.iocs.urls.length > 0 || scanResult.iocs.emails.length > 0 || scanResult.iocs.ips.length > 0) && (
+                    <div className="mt-8 border-t border-border/40 pt-6">
+                      <h3 className="text-xl font-semibold text-foreground mb-4 flex items-center">
+                        <AlertTriangle className="w-5 h-5 mr-2 text-warning" />
+                        Indicators of Compromise (IoCs)
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {scanResult.iocs.urls.length > 0 && (
+                          <div className="bg-muted/30 p-4 rounded-lg border border-border/50">
+                            <h4 className="font-medium text-foreground mb-3 flex items-center text-sm">
+                              <span className="w-2 h-2 rounded-full bg-blue-500 mr-2" />
+                              Suspicious URLs
+                            </h4>
+                            <div className="space-y-2">
+                              {scanResult.iocs.urls.map((url, i) => (
+                                <div key={i} className="text-xs break-all bg-background p-2 rounded border border-border/40 font-mono text-muted-foreground">{url}</div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {scanResult.iocs.emails.length > 0 && (
+                          <div className="bg-muted/30 p-4 rounded-lg border border-border/50">
+                            <h4 className="font-medium text-foreground mb-3 flex items-center text-sm">
+                              <span className="w-2 h-2 rounded-full bg-purple-500 mr-2" />
+                              Email Addresses
+                            </h4>
+                            <div className="space-y-2">
+                              {scanResult.iocs.emails.map((email, i) => (
+                                <div key={i} className="text-xs break-all bg-background p-2 rounded border border-border/40 font-mono text-muted-foreground">{email}</div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {scanResult.iocs.ips.length > 0 && (
+                          <div className="bg-muted/30 p-4 rounded-lg border border-border/50">
+                            <h4 className="font-medium text-foreground mb-3 flex items-center text-sm">
+                              <span className="w-2 h-2 rounded-full bg-orange-500 mr-2" />
+                              IP Addresses
+                            </h4>
+                            <div className="space-y-2">
+                              {scanResult.iocs.ips.map((ip, i) => (
+                                <div key={i} className="text-xs break-all bg-background p-2 rounded border border-border/40 font-mono text-muted-foreground">{ip}</div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex flex-col gap-4 pt-4">
                     <div className="flex flex-col sm:flex-row gap-4">
